@@ -205,13 +205,23 @@ class CreditOrchestrator:
 
     @staticmethod
     def _checkpoint(node_id: str, state: CreditState, checkpoints: list[dict[str, Any]]) -> None:
-        snapshot = state.public_snapshot()
+        snapshot = state.explainable_snapshot()
+        if node_id == "CONTROL":
+            changed_paths = ["control"]
+            agent_name = "Deterministic Approval Control"
+        else:
+            execution = state.node_history[-1]
+            changed_paths = execution["written_paths"]
+            agent_name = execution["agent_name"]
         checkpoints.append(
             {
                 "checkpoint_id": f"CP-{len(checkpoints) + 1:02d}",
                 "after_node": node_id,
+                "agent_name": agent_name,
                 "state_version": state.state_version,
                 "state_hash": hashlib.sha256(repr(snapshot).encode()).hexdigest(),
+                "changed_paths": changed_paths,
+                "state_snapshot": snapshot,
             }
         )
 

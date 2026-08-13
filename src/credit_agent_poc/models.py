@@ -60,6 +60,13 @@ class CreditState:
         data["audit"] = [dataclasses.asdict(event) for event in self.audit]
         return data
 
+    def explainable_snapshot(self) -> dict[str, Any]:
+        """Bounded business State for per-step explanation without trace duplication."""
+        data = self.snapshot()
+        for trace_field in ("audit", "tool_history", "node_history"):
+            data.pop(trace_field)
+        return data
+
 
 class StateValidationError(ValueError):
     pass

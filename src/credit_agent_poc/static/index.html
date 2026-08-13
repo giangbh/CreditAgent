@@ -73,6 +73,8 @@
     .decision-boundary { display:flex; align-items:center; gap:12px; padding:10px 12px; border-left:4px solid var(--purple); background:#faf8ff; color:#53406e; font-size:11px; max-width:1040px; margin:0 auto }
     .event-log { margin-top:12px }.event-log summary { cursor:pointer; font-weight:700 }.event-log pre { max-height:220px }
 
+    .state-timeline { border:1px solid var(--line-strong); background:white }.state-toolbar { display:flex; align-items:end; justify-content:space-between; gap:16px; padding:13px; background:#edf2f7; border-bottom:1px solid var(--line) }.state-toolbar label { display:block; font-size:11px; font-weight:800 }.state-toolbar select { display:block; margin-top:5px; min-height:40px; min-width:280px; border:1px solid var(--line-strong); background:white; padding:7px }.state-proof { color:var(--muted); font-size:10px; text-align:right; overflow-wrap:anywhere }.state-proof b { color:var(--ink); display:block }.state-view { display:grid; grid-template-columns:240px minmax(0,1fr) }.state-context { padding:14px; border-right:1px solid var(--line) }.state-context small { display:block; color:var(--muted); margin-bottom:3px }.state-context strong { display:block; margin-bottom:12px }.changed-paths { display:flex; flex-wrap:wrap; gap:5px }.changed-path { background:var(--blue-soft); color:var(--blue); padding:3px 6px; font:10px ui-monospace,SFMono-Regular,Menlo,monospace }.state-json { margin:0; max-height:520px; overflow:auto; background:#111827; color:#d1fae5; padding:14px; white-space:pre-wrap; font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace }
+
     .section { margin-top:22px }.section h2 { font-size:16px; margin:0 0 10px }.grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px }
     .data-card { border:1px solid var(--line); padding:13px; overflow:auto }.data-card h3 { font-size:13px; margin:0 0 8px }.data-card pre { margin:0; color:#334155; white-space:pre-wrap; font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; max-height:260px; overflow:auto }
     .trace details { border:1px solid var(--line); margin:8px 0; background:white }.trace details[open] { border-color:#7caed6 }.trace summary { cursor:pointer; font-weight:800; padding:12px; background:#f8fafc }.trace details[open] summary { color:var(--blue); border-bottom:1px solid var(--line) }
@@ -82,7 +84,7 @@
     @keyframes pulse { 50% { opacity:.62 } }
     @media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important } }
     @media (max-width:1050px) { .layout { grid-template-columns:1fr }.sidebar { position:static }.scenario-list { display:grid; grid-template-columns:repeat(2,1fr); gap:8px }.scenario { margin:0 }.stage-body { min-width:760px }.workflow-head { align-items:flex-start }.live-state { text-align:left } }
-    @media (max-width:680px) { .topbar-inner { padding:18px; display:block }.system-boundary { justify-content:flex-start; margin-top:12px }.boundary-chip { font-size:9px } main { padding:14px }.content { padding:12px }.summary,.grid,.io { grid-template-columns:1fr }.scenario-list { display:flex; gap:8px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:8px }.scenario { flex:0 0 280px; scroll-snap-align:start }.workflow-head { display:block }.live-state { margin-top:8px }.workflow { padding:10px; overflow:visible }.stage-head,.stage-meta { align-items:flex-start; flex-direction:column }.stage-meta { gap:5px }.stage-body { min-width:0; flex-direction:column }.agent-node { width:100%; min-height:76px }.flow-arrow { transform:rotate(90deg); margin:10px; flex-basis:28px }.parallel-block,.debate-box { width:100%; max-width:none }.parallel-nodes { grid-template-columns:1fr }.parallel-nodes::before { display:none }.barrier { width:100%; height:48px; align-self:center }.barrier-line { height:22px }.debate-box { flex-direction:column }.debate-box .debate-label { writing-mode:horizontal-tb; transform:none }.io > div { border:0!important; border-top:1px solid var(--line)!important } }
+    @media (max-width:680px) { .topbar-inner { padding:18px; display:block }.system-boundary { justify-content:flex-start; margin-top:12px }.boundary-chip { font-size:9px } main { padding:14px }.content { padding:12px }.summary,.grid,.io,.state-view { grid-template-columns:1fr }.scenario-list { display:flex; gap:8px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:8px }.scenario { flex:0 0 280px; scroll-snap-align:start }.workflow-head,.state-toolbar { display:block }.live-state { margin-top:8px }.state-toolbar select { min-width:0; width:100% }.state-proof { text-align:left; margin-top:9px }.state-context { border-right:0; border-bottom:1px solid var(--line) }.workflow { padding:10px; overflow:visible }.stage-head,.stage-meta { align-items:flex-start; flex-direction:column }.stage-meta { gap:5px }.stage-body { min-width:0; flex-direction:column }.agent-node { width:100%; min-height:76px }.flow-arrow { transform:rotate(90deg); margin:10px; flex-basis:28px }.parallel-block,.debate-box { width:100%; max-width:none }.parallel-nodes { grid-template-columns:1fr }.parallel-nodes::before { display:none }.barrier { width:100%; height:48px; align-self:center }.barrier-line { height:22px }.debate-box { flex-direction:column }.debate-box .debate-label { writing-mode:horizontal-tb; transform:none }.io > div { border:0!important; border-top:1px solid var(--line)!important } }
   </style>
 </head>
 <body>
@@ -101,7 +103,7 @@
     </div>
   </main>
   <script>
-    const $ = id => document.getElementById(id); let selected = null;
+    const $ = id => document.getElementById(id); let selected = null, checkpointData = [];
     const esc = value => String(value ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
     const pretty = value => esc(JSON.stringify(value,null,2));
     const AGENTS = {
@@ -162,11 +164,19 @@
     }
     function focusRisk(path){document.querySelectorAll('.agent-node').forEach(node=>{const selected=path.includes(node.dataset.agent);node.classList.toggle('filtered-out',!selected);node.classList.toggle('risk-focus',selected)});document.querySelectorAll('.filter-button').forEach(button=>button.classList.remove('active'))}
     function focusAgent(id){
-      const detail=document.getElementById(`trace-${id}`); if(!detail)return;
-      detail.open=true; detail.scrollIntoView({behavior:'smooth',block:'start'}); detail.querySelector('summary')?.focus();
+      const checkpointIndex=checkpointData.findIndex(item=>item.after_node===id), select=$('state-checkpoint');
+      if(checkpointIndex>=0&&select){select.value=String(checkpointIndex);showCheckpoint(checkpointIndex);$('state-timeline')?.scrollIntoView({behavior:'smooth',block:'start'})}
+      const detail=document.getElementById(`trace-${id}`); if(detail)detail.open=true;
+    }
+    function stateTimeline(checkpoints){return `<section class="section"><h2>State timeline · giải trình sau từng bước</h2><div class="state-timeline" id="state-timeline"><div class="state-toolbar"><label>Checkpoint<select id="state-checkpoint" onchange="showCheckpoint(Number(this.value))">${checkpoints.map((cp,index)=>`<option value="${index}">${esc(cp.checkpoint_id)} · sau ${esc(cp.after_node)} · State v${esc(cp.state_version)}</option>`).join('')}</select></label><div class="state-proof"><b id="state-agent"></b><span id="state-hash"></span></div></div><div class="state-view"><aside class="state-context"><small>Changed paths</small><div class="changed-paths" id="state-paths"></div></aside><pre class="state-json" id="state-json"></pre></div></div></section>`}
+    function showCheckpoint(index){
+      const cp=checkpointData[index];if(!cp)return;
+      $('state-agent').textContent=`${cp.after_node} · ${cp.agent_name}`;$('state-hash').textContent=`${cp.checkpoint_id} · State v${cp.state_version} · SHA-256 ${cp.state_hash}`;
+      $('state-paths').innerHTML=cp.changed_paths.map(path=>`<span class="changed-path">${esc(path)}</span>`).join('');$('state-json').textContent=JSON.stringify(cp.state_snapshot,null,2);
     }
     function render(data){
       const s=data.state,opinion=s.coapproval_opinion,control=s.control;
+      checkpointData=data.checkpoints||[];
       const versions=Object.fromEntries(s.node_history.map(n=>[n.node_id,n.output_state_version])); versions.CONTROL=s.state_version;
       const completedRun={status:'COMPLETED',active_nodes:[],events:[...s.node_history.map(n=>({event:'NODE_COMPLETED',node_id:n.node_id})),{event:'NODE_COMPLETED',node_id:'CONTROL'}]};
       const reports=Object.entries(s.analyst_reports).map(([name,value])=>`<div class="data-card"><h3>${esc(name)}</h3><pre>${pretty(value)}</pre></div>`).join('');
@@ -174,12 +184,14 @@
       const traces=s.node_history.map(n=>{const nodeTools=s.tool_history.filter(t=>t.node_id===n.node_id);return `<details id="trace-${n.node_id}"><summary>${esc(n.node_id)} · ${esc(n.agent_name)} · State v${esc(n.input_state_version)} → v${esc(n.output_state_version)}</summary><div class="io"><div><b>INPUT CONTEXT</b><pre>${pretty(n.input_context)}</pre></div><div><b>STRUCTURED OUTPUT</b><pre>${pretty(n.output)}</pre></div><div><b>SYSTEM + ROLE PROMPT</b><pre>${esc(n.system_and_role_prompt)}</pre></div><div><b>TOOL CALLS</b><pre>${pretty(nodeTools)}</pre></div></div></details>`}).join('');
       $('content').innerHTML=`<div class="summary"><div class="metric"><small>A13 draft opinion</small><b><span class="badge ${resultClass(data.actual_outcome)}">${esc(data.actual_outcome)}</span></b></div><div class="metric"><small>Deterministic control</small><b>${esc(control.status)}</b></div><div class="metric"><small>Expected outcome</small><b>${data.outcome_matches?'MATCH':'MISMATCH'} · ${esc(data.duration_ms)} ms</b></div></div>
         ${workflowCanvas(completedRun,versions,data.node_outcomes||{},data.risk_propagation||{})}
+        ${stateTimeline(checkpointData)}
         <section class="section"><h2>Input / output trace theo từng Agent</h2><div class="trace">${traces}</div></section>
         <section class="section"><h2>Evidence reports</h2><div class="grid">${reports}</div></section>
         <section class="section"><h2>Debate records</h2><div class="grid"><div class="data-card"><h3>Credit debate</h3><pre>${pretty(s.credit_debate)}</pre></div><div class="data-card"><h3>Risk committee</h3><pre>${pretty(s.risk_debate)}</pre></div></div></section>
         <section class="section"><h2>Final advisory output</h2><div class="grid"><div class="data-card"><h3>CoApprovalOpinion · DRAFT</h3><pre>${pretty(opinion)}</pre></div><div class="data-card"><h3>Approval Control</h3><pre>${pretty(control)}</pre></div></div></section>
         <section class="section"><h2>Simulated backend calls · ${s.tool_history.length}</h2><table><thead><tr><th>Agent</th><th>Tool</th><th>Status</th></tr></thead><tbody>${tools}</tbody></table></section>
         <details class="full-state"><summary>Full State, checkpoints and audit</summary><pre class="raw-json">${pretty(data)}</pre></details>`;
+      showCheckpoint(0);
     }
     $('run').onclick=async()=>{if(!selected)return;$('run').disabled=true;$('content').innerHTML=workflowCanvas({status:'RUNNING',active_nodes:[],events:[]});try{const response=await fetch('/api/run-async/'+selected,{method:'POST'});const started=await response.json();if(!response.ok)throw new Error(started.message||started.error);while(true){await new Promise(resolve=>setTimeout(resolve,100));const run=await fetch('/api/run-status/'+started.run_id).then(r=>r.json());if(run.status==='COMPLETED'){render(run.result);break}if(run.status==='FAILED')throw new Error(run.error);renderProgress(run)}}catch(error){$('content').innerHTML=`<div class="empty"><div><h2>Run failed</h2><p>${esc(error.message)}</p></div></div>`}finally{$('run').disabled=false}};
     loadScenarios();

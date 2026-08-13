@@ -60,6 +60,27 @@ class OrchestrationTests(unittest.TestCase):
                 self.assertTrue(node["system_and_role_prompt"])
         self.assertTrue(all("node_id" in call for call in result.state.tool_history))
 
+    def test_every_checkpoint_contains_bounded_explainable_state(self):
+        result = self.results["approve_conditions"]
+        for checkpoint in result.checkpoints:
+            with self.subTest(checkpoint["after_node"]):
+                snapshot = checkpoint["state_snapshot"]
+                self.assertEqual(snapshot["state_version"], checkpoint["state_version"])
+                self.assertTrue(checkpoint["changed_paths"])
+                self.assertTrue(checkpoint["state_hash"])
+                self.assertNotIn("audit", snapshot)
+                self.assertNotIn("tool_history", snapshot)
+                self.assertNotIn("node_history", snapshot)
+
+    def test_checkpoint_values_show_state_evolution(self):
+        checkpoints = self.results["approve_conditions"].checkpoints
+        after_a1 = next(cp for cp in checkpoints if cp["after_node"] == "A1")
+        after_a2 = next(cp for cp in checkpoints if cp["after_node"] == "A2")
+        after_control = checkpoints[-1]
+        self.assertEqual(after_a1["state_snapshot"]["analyst_reports"], {})
+        self.assertIn("cashflow", after_a2["state_snapshot"]["analyst_reports"])
+        self.assertEqual(after_control["state_snapshot"]["control"]["status"], "READY_FOR_HUMAN_REVIEW")
+
     def test_observer_reports_start_and_completion_for_every_node(self):
         events = []
         CreditOrchestrator().run("approve_conditions", observer=events.append)

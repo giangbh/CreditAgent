@@ -54,6 +54,7 @@ Mở [http://127.0.0.1:8080](http://127.0.0.1:8080), chọn scenario và bấm *
 - API result có `risk_propagation`: risk source, đường đi qua các agent, từng edge và terminal node.
 - Workflow có bộ lọc `ISSUES`, `PASS`, `WARNING`, `ESCALATE`, `FAIL`; stage header tổng hợp outcome count.
 - Chọn một risk chain để làm mờ node không liên quan và theo dõi đường lan truyền từ evidence tới Approval Control.
+- State timeline lưu 14 bounded snapshots sau A1–A13 và CONTROL. Mỗi checkpoint có State version, SHA-256 hash, changed paths và toàn bộ giá trị State nghiệp vụ tại thời điểm đó; click agent trên canvas sẽ mở đúng checkpoint tương ứng.
 
 Mở mục **Input / output trace theo từng Agent** sau khi run hoàn tất. Mỗi agent có bốn ô: `INPUT CONTEXT`, `STRUCTURED OUTPUT`, `SYSTEM + ROLE PROMPT` và `TOOL CALLS`. Đây là trace phục vụ POC; production phải áp dụng redaction, access control và retention policy trước khi lưu prompt/context.
 
