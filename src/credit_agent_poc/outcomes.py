@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import asdict, dataclass
+from importlib.resources import files
 from typing import Any
 
 from .models import CreditState
@@ -11,14 +14,32 @@ class NodeOutcome:
     level: str
     label: str
     reason: str
+    reason_code: str
+    rule_version: str
     execution_status: str = "COMPLETED"
 
     def to_dict(self) -> dict[str, str]:
         return asdict(self)
 
 
+def load_outcome_policy() -> dict[str, Any]:
+    resource = files("credit_agent_poc").joinpath("config/outcome_policy.json")
+    return json.loads(resource.read_text(encoding="utf-8"))
+
+
+OUTCOME_POLICY = load_outcome_policy()
+THRESHOLDS = OUTCOME_POLICY["thresholds"]
+
+
 def _outcome(level: str, reason: str) -> NodeOutcome:
-    return NodeOutcome(level=level, label=level, reason=reason)
+    reason_code = re.sub(r"[^A-Z0-9]+", "_", reason.upper()).strip("_")
+    return NodeOutcome(
+        level=level,
+        label=level,
+        reason=reason,
+        reason_code=reason_code,
+        rule_version=OUTCOME_POLICY["version"],
+    )
 
 
 def classify_agent_outcome(node_id: str, output: dict[str, Any]) -> NodeOutcome:
@@ -41,14 +62,17 @@ def classify_agent_outcome(node_id: str, output: dict[str, Any]) -> NodeOutcome:
     if node_id == "A3":
         if output.get("rating") in {"CRITICAL", "FAIL"}:
             return _outcome("FAIL", "Material transaction-integrity risk")
-        if output.get("rating") != "PASS" or output.get("related_party_coverage", 1) < 0.8:
+        if output.get("rating") != "PASS" or output.get("related_party_coverage", 1) < THRESHOLDS["minimum_related_party_coverage"]:
             return _outcome("WARNING", "Transaction integrity needs review")
         return _outcome("PASS", "No material integrity pattern")
 
     if node_id == "A4":
         if output.get("rating") == "FAIL" or output.get("primary_repayment_viable") is False:
             return _outcome("FAIL", "Primary repayment is not viable")
-        if output.get("stressed_dscr", 99) < 1.1 or output.get("revenue_match_ratio", 1) < 0.8:
+        if (
+            output.get("stressed_dscr", 99) < THRESHOLDS["minimum_stressed_dscr"]
+            or output.get("revenue_match_ratio", 1) < THRESHOLDS["minimum_revenue_match_ratio"]
+        ):
             return _outcome("WARNING", "Repayment capacity is marginal")
         return _outcome("PASS", "Repayment capacity passed")
 

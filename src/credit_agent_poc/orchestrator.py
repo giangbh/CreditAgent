@@ -11,7 +11,8 @@ from typing import Any, Callable, Optional
 from .agents import AGENT_NAMES, AgentExecution, AgentRuntime
 from .model import ModelAdapter, ScenarioModel
 from .models import AuditEvent, CreditState, StatePatch, apply_patch
-from .outcomes import build_outcome_map
+from .outcomes import OUTCOME_POLICY, build_outcome_map
+from .risk_propagation import build_risk_propagation
 from .scenarios import SCENARIOS, Scenario
 from .tools import ToolGateway
 
@@ -42,6 +43,11 @@ class RunResult:
             "pipeline": PIPELINE,
             "checkpoints": self.checkpoints,
             "node_outcomes": build_outcome_map(self.state),
+            "outcome_policy": {
+                "policy_id": OUTCOME_POLICY["policy_id"],
+                "version": OUTCOME_POLICY["version"],
+            },
+            "risk_propagation": build_risk_propagation(self.state),
             "state": self.state.public_snapshot(),
         }
 

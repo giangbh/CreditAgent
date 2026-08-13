@@ -48,6 +48,13 @@ Mở [http://127.0.0.1:8080](http://127.0.0.1:8080), chọn scenario và bấm *
 - Deterministic control status và blocked reasons.
 - Simulated backend calls, checkpoints và audit trail.
 
+### Sprint 1: outcome và risk observability
+
+- Outcome policy được version tại `src/credit_agent_poc/config/outcome_policy.json`. Mỗi node outcome trả về `level`, `reason_code`, `reason`, `rule_version` và execution status riêng biệt.
+- API result có `risk_propagation`: risk source, đường đi qua các agent, từng edge và terminal node.
+- Workflow có bộ lọc `ISSUES`, `PASS`, `WARNING`, `ESCALATE`, `FAIL`; stage header tổng hợp outcome count.
+- Chọn một risk chain để làm mờ node không liên quan và theo dõi đường lan truyền từ evidence tới Approval Control.
+
 Mở mục **Input / output trace theo từng Agent** sau khi run hoàn tất. Mỗi agent có bốn ô: `INPUT CONTEXT`, `STRUCTURED OUTPUT`, `SYSTEM + ROLE PROMPT` và `TOOL CALLS`. Đây là trace phục vụ POC; production phải áp dụng redaction, access control và retention policy trước khi lưu prompt/context.
 
 Bạn cũng có thể click trực tiếp một agent trên workflow canvas để mở và cuộn tới trace tương ứng.

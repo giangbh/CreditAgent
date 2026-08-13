@@ -49,6 +49,28 @@ class OutcomeClassificationTests(unittest.TestCase):
             {"A2": "FAIL", "A8": "FAIL", "A13": "FAIL", "CONTROL": "FAIL"},
         )
 
+    def test_outcomes_are_auditable_against_versioned_policy(self):
+        result = self.results["approve_conditions"]
+        self.assertEqual(result["outcome_policy"]["policy_id"], "credit-agent-business-outcome")
+        self.assertEqual(result["outcome_policy"]["version"], "1.1.0")
+        for outcome in result["node_outcomes"].values():
+            self.assertEqual(outcome["rule_version"], "1.1.0")
+            self.assertTrue(outcome["reason_code"])
+
+    def test_circular_funds_risk_is_traced_to_control(self):
+        propagation = self.results["escalate_circular_funds"]["risk_propagation"]
+        circular = next(risk for risk in propagation["risks"] if risk["risk_code"] == "CIRCULAR_FUNDS_PATTERN")
+        self.assertEqual(circular["source_node"], "A3")
+        self.assertEqual(circular["path"], ["A3", "A5", "A7", "A8", "A10", "A11", "A12", "A13", "CONTROL"])
+        self.assertEqual(circular["terminal_node"], "CONTROL")
+
+    def test_cashflow_condition_propagates_into_conditional_opinion(self):
+        propagation = self.results["approve_conditions"]["risk_propagation"]
+        cashflow = next(risk for risk in propagation["risks"] if risk["risk_code"] == "CASHFLOW_QUALITY_OR_COVERAGE")
+        self.assertEqual(cashflow["source_node"], "A2")
+        self.assertIn("A9", cashflow["path"])
+        self.assertEqual(cashflow["terminal_node"], "A13")
+
 
 if __name__ == "__main__":
     unittest.main()

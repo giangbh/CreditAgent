@@ -1,0 +1,10 @@
+{
+  "policy_id": "credit-agent-business-outcome",
+  "version": "1.1.0",
+  "severity_order": ["PASS", "WARNING", "ESCALATE", "FAIL"],
+  "thresholds": {
+    "minimum_related_party_coverage": 0.8,
+    "minimum_stressed_dscr": 1.1,
+    "minimum_revenue_match_ratio": 0.8
+  }
+}
