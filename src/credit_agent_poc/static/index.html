@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CreditAgent POC</title>
+  <style>
+    :root {
+      --ink:#152238; --muted:#64748b; --line:#d9e2ec; --line-strong:#aab8c8;
+      --page:#f3f6f9; --surface:#fff; --navy:#102a43; --blue:#1d5fa7;
+      --blue-soft:#eaf3fb; --green:#19764a; --green-soft:#eaf7f0;
+      --amber:#a85d08; --amber-soft:#fff6e5; --red:#b42318; --red-soft:#fff0ee;
+      --purple:#6941c6; --purple-soft:#f3efff;
+    }
+    * { box-sizing:border-box }
+    body { margin:0; background:var(--page); color:var(--ink); font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,sans-serif }
+    button { font:inherit }
+    button:focus-visible, summary:focus-visible { outline:3px solid #7cc4ff; outline-offset:2px }
+    .topbar { background:var(--navy); color:white; border-bottom:4px solid #2f80c9 }
+    .topbar-inner { max-width:1500px; margin:auto; padding:22px 28px; display:flex; align-items:center; justify-content:space-between; gap:20px }
+    .brand h1 { margin:0; font-size:24px; letter-spacing:-.02em }.brand p { margin:3px 0 0; color:#c7d8e8 }
+    .system-boundary { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end }
+    .boundary-chip { border:1px solid #54718c; color:#dbeafe; padding:5px 9px; font-size:11px; font-weight:700; letter-spacing:.04em }
+    main { max-width:1500px; margin:auto; padding:24px 28px 48px }
+    .layout { display:grid; grid-template-columns:320px minmax(0,1fr); gap:20px; align-items:start }.layout > * { min-width:0 }
+    .panel { background:var(--surface); border:1px solid var(--line) }
+    .sidebar { position:sticky; top:18px; padding:18px }.sidebar h2,.section-title { font-size:16px; margin:0 0 12px }
+    .scenario { width:100%; text-align:left; border:1px solid var(--line); background:white; padding:12px; margin:0 0 8px; cursor:pointer; min-height:74px }
+    .scenario:hover,.scenario.active { border-color:var(--blue); background:#f5faff }.scenario.active { box-shadow:inset 4px 0 0 var(--blue) }
+    .scenario b,.scenario span { display:block }.scenario span { color:var(--muted); font-size:12px; margin-top:3px }
+    .run-button { width:100%; border:0; min-height:44px; padding:11px; color:white; background:var(--blue); font-weight:800; cursor:pointer; margin-top:8px }
+    .run-button:hover { background:#174f8c }.run-button:disabled { background:#cbd5e1; color:#475569; opacity:1; cursor:not-allowed }
+    .content { min-width:0; min-height:640px; padding:20px }.empty { min-height:520px; display:grid; place-items:center; color:var(--muted); text-align:center }
+    .empty h2 { color:var(--ink) }
+    .summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:18px }
+    .metric { border:1px solid var(--line); border-top:3px solid var(--blue); padding:13px; min-height:78px }.metric small { color:var(--muted); display:block }.metric b { display:block; margin-top:5px; overflow-wrap:anywhere }
+    .badge { display:inline-block; padding:3px 8px; font-size:11px; font-weight:800; letter-spacing:.025em }.pass { background:var(--green-soft); color:var(--green) }.warn { background:var(--amber-soft); color:var(--amber) }.fail { background:var(--red-soft); color:var(--red) }
+
+    .workflow-shell { width:100%; max-width:100%; min-width:0; border:1px solid var(--line-strong); background:#f8fafc; margin:14px 0 22px }
+    .workflow-head { background:white; border-bottom:1px solid var(--line); padding:14px 16px; display:flex; align-items:flex-start; justify-content:space-between; gap:20px }
+    .workflow-head h2 { margin:0; font-size:17px }.workflow-head p { margin:3px 0 0; color:var(--muted) }
+    .live-state { min-width:220px; text-align:right }.live-state small { display:block; color:var(--muted) }.live-state strong { color:var(--amber) }
+    .legend { display:flex; gap:12px; flex-wrap:wrap; border-bottom:1px solid var(--line); background:white; padding:9px 16px; color:var(--muted); font-size:11px }
+    .legend span { display:flex; align-items:center; gap:5px }.legend i { width:9px; height:9px; border:1px solid var(--line-strong); display:inline-block }.legend .l-running { background:#f59e0b }.legend .l-completed { background:var(--green) }.legend .l-pending { background:white }
+    .workflow { padding:18px; overflow:auto }
+    .stage { background:white; border:1px solid var(--line); max-width:1040px; margin:0 auto; position:relative }
+    .stage-head { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:9px 12px; background:#edf2f7; border-bottom:1px solid var(--line) }
+    .stage-head b { font-size:12px; letter-spacing:.055em; text-transform:uppercase }.stage-head span { color:var(--muted); font-size:11px }
+    .stage-body { padding:16px; display:flex; align-items:center; justify-content:center; gap:12px; min-width:700px }
+    .stage-connector { width:2px; height:28px; background:var(--line-strong); margin:0 auto; position:relative }.stage-connector::after { content:""; position:absolute; bottom:-1px; left:-4px; border:5px solid transparent; border-top-color:var(--line-strong) }
+    .agent-node { width:148px; min-height:78px; border:1px solid var(--line-strong); border-top:4px solid #94a3b8; background:white; padding:10px; text-align:left; cursor:pointer; position:relative; transition:border-color .15s,background .15s,transform .15s }
+    .agent-node:hover { border-color:var(--blue); transform:translateY(-1px) }.agent-node .node-top { display:flex; justify-content:space-between; gap:8px; align-items:center }.agent-node .node-id { font-weight:900; color:var(--navy) }.agent-node .node-status { color:var(--muted); font-size:9px; font-weight:900; letter-spacing:.045em }
+    .agent-node .node-role { display:block; margin-top:6px; font-size:12px; font-weight:700; line-height:1.25 }.agent-node .node-version { display:block; margin-top:5px; color:var(--muted); font-size:10px }
+    .agent-node.running { border-color:#f59e0b; border-top-color:#f59e0b; background:#fffbeb; animation:pulse 1s infinite }.agent-node.running .node-status { color:var(--amber) }
+    .agent-node.completed { border-color:#72bb91; border-top-color:var(--green); background:#f6fcf8 }.agent-node.completed .node-status { color:var(--green) }
+    .agent-node.failed { border-color:#ef9a93; border-top-color:var(--red); background:var(--red-soft) }.agent-node.control-node { border-top-color:var(--purple); background:var(--purple-soft) }
+    .agent-node.control-node .node-id { color:var(--purple) }
+    .flow-arrow { flex:0 0 34px; height:2px; background:var(--line-strong); position:relative }.flow-arrow::after { content:""; position:absolute; right:-1px; top:-4px; border:5px solid transparent; border-left-color:var(--line-strong) }
+    .flow-arrow.bidirectional::before { content:""; position:absolute; left:-1px; top:-4px; border:5px solid transparent; border-right-color:var(--line-strong) }
+    .parallel-block { flex:1; max-width:620px; border:1px dashed #78a9d1; background:var(--blue-soft); padding:13px; position:relative }.parallel-label,.debate-label { color:var(--blue); font-size:10px; font-weight:900; letter-spacing:.06em; margin-bottom:10px; text-transform:uppercase }
+    .parallel-nodes { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; position:relative }.parallel-nodes .agent-node { width:100% }
+    .parallel-nodes::before { content:""; position:absolute; height:1px; background:#78a9d1; left:16%; right:16%; top:-7px }
+    .barrier { flex:0 0 70px; align-self:stretch; display:flex; flex-direction:column; justify-content:center; align-items:center; color:var(--muted); font-size:9px; font-weight:800; text-align:center }.barrier-line { height:68%; width:5px; border-left:2px solid var(--blue); border-right:2px solid var(--blue); margin-bottom:4px }
+    .debate-box { display:flex; align-items:center; gap:12px; padding:12px; border:1px dashed #d7a649; background:var(--amber-soft) }.debate-box .debate-label { color:var(--amber); writing-mode:vertical-rl; transform:rotate(180deg); margin:0 }
+    .judge-node { border-top-color:var(--purple) }.risk-box { border-color:#b6a5df; background:var(--purple-soft) }.risk-box .debate-label { color:var(--purple) }
+    .decision-boundary { display:flex; align-items:center; gap:12px; padding:10px 12px; border-left:4px solid var(--purple); background:#faf8ff; color:#53406e; font-size:11px; max-width:1040px; margin:0 auto }
+    .event-log { margin-top:12px }.event-log summary { cursor:pointer; font-weight:700 }.event-log pre { max-height:220px }
+
+    .section { margin-top:22px }.section h2 { font-size:16px; margin:0 0 10px }.grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px }
+    .data-card { border:1px solid var(--line); padding:13px; overflow:auto }.data-card h3 { font-size:13px; margin:0 0 8px }.data-card pre { margin:0; color:#334155; white-space:pre-wrap; font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; max-height:260px; overflow:auto }
+    .trace details { border:1px solid var(--line); margin:8px 0; background:white }.trace details[open] { border-color:#7caed6 }.trace summary { cursor:pointer; font-weight:800; padding:12px; background:#f8fafc }.trace details[open] summary { color:var(--blue); border-bottom:1px solid var(--line) }
+    .io { display:grid; grid-template-columns:1fr 1fr; gap:0 }.io > div { padding:12px; min-width:0 }.io > div:nth-child(odd) { border-right:1px solid var(--line) }.io > div:nth-child(n+3) { border-top:1px solid var(--line) }.io b { font-size:10px; letter-spacing:.055em; color:var(--muted) }.io pre,.raw-json { background:#111827; color:#d1fae5; padding:12px; white-space:pre-wrap; max-height:380px; overflow:auto; font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace }
+    table { width:100%; border-collapse:collapse } th,td { border-bottom:1px solid var(--line); padding:7px; text-align:left } th { color:var(--muted); font-size:11px }
+    details.full-state { margin-top:20px }.full-state summary { cursor:pointer; font-weight:800 }
+    @keyframes pulse { 50% { opacity:.62 } }
+    @media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important } }
+    @media (max-width:1050px) { .layout { grid-template-columns:1fr }.sidebar { position:static }.scenario-list { display:grid; grid-template-columns:repeat(2,1fr); gap:8px }.scenario { margin:0 }.stage-body { min-width:760px }.workflow-head { align-items:flex-start }.live-state { text-align:left } }
+    @media (max-width:680px) { .topbar-inner { padding:18px; display:block }.system-boundary { justify-content:flex-start; margin-top:12px }.boundary-chip { font-size:9px } main { padding:14px }.content { padding:12px }.summary,.grid,.io { grid-template-columns:1fr }.scenario-list { display:flex; gap:8px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:8px }.scenario { flex:0 0 280px; scroll-snap-align:start }.workflow-head { display:block }.live-state { margin-top:8px }.workflow { padding:10px; overflow:visible }.stage-body { min-width:0; flex-direction:column }.agent-node { width:100%; min-height:76px }.flow-arrow { transform:rotate(90deg); margin:10px; flex-basis:28px }.parallel-block,.debate-box { width:100%; max-width:none }.parallel-nodes { grid-template-columns:1fr }.parallel-nodes::before { display:none }.barrier { width:100%; height:48px; align-self:center }.barrier-line { height:22px }.debate-box { flex-direction:column }.debate-box .debate-label { writing-mode:horizontal-tb; transform:none }.io > div { border:0!important; border-top:1px solid var(--line)!important } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><h1>CreditAgent POC</h1><p>Luồng thẩm định tín dụng đa tác nhân có kiểm soát</p></div>
+      <div class="system-boundary" aria-label="System boundaries">
+        <span class="boundary-chip">13 LOGICAL AGENTS</span><span class="boundary-chip">SIMULATED TOOLS</span><span class="boundary-chip">HUMAN FINAL AUTHORITY</span>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="layout">
+      <aside class="panel sidebar"><h2>Kịch bản kiểm thử</h2><div class="scenario-list" id="scenarios"></div><button class="run-button" id="run" disabled>Chạy workflow</button></aside>
+      <section class="panel content" id="content"><div class="empty"><div><h2>Chọn một kịch bản</h2><p>Workflow canvas sẽ hiển thị luồng tuần tự, song song và hai vòng phản biện.</p></div></div></section>
+    </div>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id); let selected = null;
+    const esc = value => String(value ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+    const pretty = value => esc(JSON.stringify(value,null,2));
+    const AGENTS = {
+      A1:'Intake & Evidence',A2:'Cashflow Analyst',A3:'Transaction Integrity',A4:'Financial Capacity',A5:'Policy Compliance',
+      A6:'Credit Advocate',A7:'Risk Challenger',A8:'Assessment Manager',A9:'Deal Structuring',A10:'Business / Upside',
+      A11:'Conservative Credit',A12:'Neutral Governance',A13:'Co-Approval Manager',CONTROL:'Approval Control'
+    };
+    function statusOf(id,run){
+      const events=run?.events||[], active=new Set(run?.active_nodes||[]);
+      if(active.has(id))return 'running';
+      if(events.some(e=>e.node_id===id&&e.event==='NODE_COMPLETED'))return 'completed';
+      return 'pending';
+    }
+    function node(id,run,versions={}){
+      const status=statusOf(id,run), control=id==='CONTROL'?' control-node':'', version=versions[id]!==undefined?`State v${versions[id]}`:'Awaiting input';
+      return `<button class="agent-node ${status}${control}" data-agent="${id}" onclick="focusAgent('${id}')" aria-label="${id} ${esc(AGENTS[id])} ${status}"><span class="node-top"><span class="node-id">${id}</span><span class="node-status">${status.toUpperCase()}</span></span><span class="node-role">${esc(AGENTS[id])}</span><span class="node-version">${esc(version)}</span></button>`;
+    }
+    function workflowCanvas(run,versions={}){
+      const observedVersions=Object.fromEntries((run?.events||[]).filter(e=>e.event==='NODE_COMPLETED').map(e=>[e.node_id,e.state_version])); versions={...observedVersions,...versions};
+      const active=(run?.active_nodes||[]).map(id=>`${id} ${AGENTS[id]}`).join(' · ')||((run?.status==='COMPLETED')?'Workflow completed':'Waiting to run');
+      return `<section class="workflow-shell"><header class="workflow-head"><div><h2>Agent orchestration</h2><p>Đọc từ trên xuống. Mỗi stage thể hiện đúng dependency và execution mode.</p></div><div class="live-state"><small>Current execution</small><strong>${esc(active)}</strong></div></header>
+        <div class="legend"><span><i class="l-running"></i> Running</span><span><i class="l-completed"></i> Completed</span><span><i class="l-pending"></i> Pending</span><span>Click agent để xem trace</span></div><div class="workflow">
+        <section class="stage"><header class="stage-head"><b>1. Evidence production</b><span>Sequential intake → parallel analysis → barrier → policy</span></header><div class="stage-body">
+          ${node('A1',run,versions)}<div class="flow-arrow"></div><div class="parallel-block"><div class="parallel-label">Fan-out · chạy song song trên cùng State snapshot</div><div class="parallel-nodes">${node('A2',run,versions)}${node('A3',run,versions)}${node('A4',run,versions)}</div></div><div class="barrier"><div class="barrier-line"></div>JOIN<br>BARRIER</div>${node('A5',run,versions)}
+        </div></section><div class="stage-connector"></div>
+        <section class="stage"><header class="stage-head"><b>2. Credit challenge</b><span>Bounded debate → evidence-weighted judgment</span></header><div class="stage-body"><div class="debate-box"><span class="debate-label">Credit debate · 1 round</span>${node('A6',run,versions)}<div class="flow-arrow bidirectional"></div>${node('A7',run,versions)}</div><div class="flow-arrow"></div>${node('A8',run,versions)}</div></section><div class="stage-connector"></div>
+        <section class="stage"><header class="stage-head"><b>3. Deal structuring</b><span>Deterministic capacity, pricing and policy constraints</span></header><div class="stage-body">${node('A9',run,versions)}</div></section><div class="stage-connector"></div>
+        <section class="stage"><header class="stage-head"><b>4. Risk committee</b><span>Three ordered perspectives with explicit counterpoints</span></header><div class="stage-body"><div class="debate-box risk-box"><span class="debate-label">Risk debate · 1 round</span>${node('A10',run,versions)}<div class="flow-arrow"></div>${node('A11',run,versions)}<div class="flow-arrow"></div>${node('A12',run,versions)}</div></div></section><div class="stage-connector"></div>
+        <section class="stage"><header class="stage-head"><b>5. Advisory opinion and control</b><span>LLM recommendation is separated from deterministic authority</span></header><div class="stage-body">${node('A13',run,versions)}<div class="flow-arrow"></div>${node('CONTROL',run,versions)}</div></section>
+        <div class="decision-boundary"><b>Decision boundary</b><span>A13 chỉ tạo DRAFT opinion. Approval Control kiểm tra hard blocks và chỉ chuyển tới human review.</span></div>
+        ${run?.events?`<details class="event-log"><summary>Execution event stream (${run.events.length})</summary><pre class="raw-json">${pretty(run.events)}</pre></details>`:''}
+      </div></section>`;
+    }
+    async function loadScenarios(){
+      const scenarios=await fetch('/api/scenarios').then(r=>r.json());
+      $('scenarios').innerHTML=scenarios.map(s=>`<button class="scenario" data-id="${esc(s.scenario_id)}"><b>${esc(s.name)}</b><span>${esc(s.description)}</span><span>Expected: ${esc(s.expected_outcome)}</span></button>`).join('');
+      document.querySelectorAll('.scenario').forEach(button=>button.onclick=()=>{document.querySelectorAll('.scenario').forEach(x=>x.classList.remove('active'));button.classList.add('active');selected=button.dataset.id;$('run').disabled=false;});
+    }
+    function resultClass(decision){return decision.includes('APPROVE')?'pass':decision.includes('ESCALATE')?'warn':'fail'}
+    function renderProgress(run){$('content').innerHTML=workflowCanvas(run)}
+    function focusAgent(id){
+      const detail=document.getElementById(`trace-${id}`); if(!detail)return;
+      detail.open=true; detail.scrollIntoView({behavior:'smooth',block:'start'}); detail.querySelector('summary')?.focus();
+    }
+    function render(data){
+      const s=data.state,opinion=s.coapproval_opinion,control=s.control;
+      const versions=Object.fromEntries(s.node_history.map(n=>[n.node_id,n.output_state_version])); versions.CONTROL=s.state_version;
+      const completedRun={status:'COMPLETED',active_nodes:[],events:[...s.node_history.map(n=>({event:'NODE_COMPLETED',node_id:n.node_id})),{event:'NODE_COMPLETED',node_id:'CONTROL'}]};
+      const reports=Object.entries(s.analyst_reports).map(([name,value])=>`<div class="data-card"><h3>${esc(name)}</h3><pre>${pretty(value)}</pre></div>`).join('');
+      const tools=s.tool_history.map(t=>`<tr><td>${esc(t.node_id)}</td><td>${esc(t.tool_name)}</td><td><span class="badge ${t.status==='SUCCESS'?'pass':'fail'}">${esc(t.status)}</span></td></tr>`).join('');
+      const traces=s.node_history.map(n=>{const nodeTools=s.tool_history.filter(t=>t.node_id===n.node_id);return `<details id="trace-${n.node_id}"><summary>${esc(n.node_id)} · ${esc(n.agent_name)} · State v${esc(n.input_state_version)} → v${esc(n.output_state_version)}</summary><div class="io"><div><b>INPUT CONTEXT</b><pre>${pretty(n.input_context)}</pre></div><div><b>STRUCTURED OUTPUT</b><pre>${pretty(n.output)}</pre></div><div><b>SYSTEM + ROLE PROMPT</b><pre>${esc(n.system_and_role_prompt)}</pre></div><div><b>TOOL CALLS</b><pre>${pretty(nodeTools)}</pre></div></div></details>`}).join('');
+      $('content').innerHTML=`<div class="summary"><div class="metric"><small>A13 draft opinion</small><b><span class="badge ${resultClass(data.actual_outcome)}">${esc(data.actual_outcome)}</span></b></div><div class="metric"><small>Deterministic control</small><b>${esc(control.status)}</b></div><div class="metric"><small>Expected outcome</small><b>${data.outcome_matches?'MATCH':'MISMATCH'} · ${esc(data.duration_ms)} ms</b></div></div>
+        ${workflowCanvas(completedRun,versions)}
+        <section class="section"><h2>Input / output trace theo từng Agent</h2><div class="trace">${traces}</div></section>
+        <section class="section"><h2>Evidence reports</h2><div class="grid">${reports}</div></section>
+        <section class="section"><h2>Debate records</h2><div class="grid"><div class="data-card"><h3>Credit debate</h3><pre>${pretty(s.credit_debate)}</pre></div><div class="data-card"><h3>Risk committee</h3><pre>${pretty(s.risk_debate)}</pre></div></div></section>
+        <section class="section"><h2>Final advisory output</h2><div class="grid"><div class="data-card"><h3>CoApprovalOpinion · DRAFT</h3><pre>${pretty(opinion)}</pre></div><div class="data-card"><h3>Approval Control</h3><pre>${pretty(control)}</pre></div></div></section>
+        <section class="section"><h2>Simulated backend calls · ${s.tool_history.length}</h2><table><thead><tr><th>Agent</th><th>Tool</th><th>Status</th></tr></thead><tbody>${tools}</tbody></table></section>
+        <details class="full-state"><summary>Full State, checkpoints and audit</summary><pre class="raw-json">${pretty(data)}</pre></details>`;
+    }
+    $('run').onclick=async()=>{if(!selected)return;$('run').disabled=true;$('content').innerHTML=workflowCanvas({status:'RUNNING',active_nodes:[],events:[]});try{const response=await fetch('/api/run-async/'+selected,{method:'POST'});const started=await response.json();if(!response.ok)throw new Error(started.message||started.error);while(true){await new Promise(resolve=>setTimeout(resolve,100));const run=await fetch('/api/run-status/'+started.run_id).then(r=>r.json());if(run.status==='COMPLETED'){render(run.result);break}if(run.status==='FAILED')throw new Error(run.error);renderProgress(run)}}catch(error){$('content').innerHTML=`<div class="empty"><div><h2>Run failed</h2><p>${esc(error.message)}</p></div></div>`}finally{$('run').disabled=false}};
+    loadScenarios();
+  </script>
+</body>
+</html>

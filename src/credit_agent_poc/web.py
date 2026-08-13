@@ -1,0 +1,134 @@
+from __future__ import annotations
+
+import json
+import threading
+import uuid
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib.resources import files
+from urllib.parse import urlparse
+
+from .orchestrator import CreditOrchestrator
+from .scenarios import SCENARIOS, scenario_catalog
+
+
+class POCRequestHandler(BaseHTTPRequestHandler):
+    orchestrator = CreditOrchestrator()
+    runs: dict[str, dict] = {}
+    runs_lock = threading.Lock()
+
+    def log_message(self, format: str, *args: object) -> None:
+        return
+
+    def _json(self, payload: object, status: HTTPStatus = HTTPStatus.OK) -> None:
+        body = json.dumps(payload, ensure_ascii=False).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self) -> None:
+        path = urlparse(self.path).path
+        if path == "/api/scenarios":
+            self._json(scenario_catalog())
+            return
+        if path == "/api/health":
+            self._json({"status": "ok", "service": "credit-agent-poc"})
+            return
+        status_prefix = "/api/run-status/"
+        if path.startswith(status_prefix):
+            run_id = path[len(status_prefix) :]
+            with self.runs_lock:
+                run = self.runs.get(run_id)
+                payload = dict(run) if run else None
+            if payload is None:
+                self._json({"error": "unknown_run", "run_id": run_id}, HTTPStatus.NOT_FOUND)
+            else:
+                self._json(payload)
+            return
+        if path in {"/", "/index.html"}:
+            body = files("credit_agent_poc").joinpath("static/index.html").read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self._json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+
+    def do_POST(self) -> None:
+        path = urlparse(self.path).path
+        async_prefix = "/api/run-async/"
+        if path.startswith(async_prefix):
+            scenario_id = path[len(async_prefix) :]
+            if scenario_id not in SCENARIOS:
+                self._json({"error": "unknown_scenario", "scenario_id": scenario_id}, HTTPStatus.NOT_FOUND)
+                return
+            run_id = str(uuid.uuid4())
+            with self.runs_lock:
+                self.runs[run_id] = {
+                    "run_id": run_id,
+                    "scenario_id": scenario_id,
+                    "status": "RUNNING",
+                    "active_nodes": [],
+                    "events": [],
+                    "result": None,
+                    "error": None,
+                }
+            threading.Thread(
+                target=self._run_async,
+                args=(run_id, scenario_id),
+                name=f"poc-run-{run_id[:8]}",
+                daemon=True,
+            ).start()
+            self._json({"run_id": run_id, "status": "RUNNING"}, HTTPStatus.ACCEPTED)
+            return
+        prefix = "/api/run/"
+        if not path.startswith(prefix):
+            self._json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+            return
+        scenario_id = path[len(prefix) :]
+        if scenario_id not in SCENARIOS:
+            self._json({"error": "unknown_scenario", "scenario_id": scenario_id}, HTTPStatus.NOT_FOUND)
+            return
+        try:
+            result = self.orchestrator.run(scenario_id)
+            self._json(result.to_dict())
+        except Exception as exc:
+            self._json({"error": "run_failed", "message": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    @classmethod
+    def _run_async(cls, run_id: str, scenario_id: str) -> None:
+        def observe(event: dict) -> None:
+            with cls.runs_lock:
+                run = cls.runs[run_id]
+                run["events"].append(event)
+                node_id = event["node_id"]
+                if event["event"] == "NODE_STARTED" and node_id not in run["active_nodes"]:
+                    run["active_nodes"].append(node_id)
+                elif event["event"] == "NODE_COMPLETED" and node_id in run["active_nodes"]:
+                    run["active_nodes"].remove(node_id)
+
+        try:
+            result = CreditOrchestrator(step_delay_ms=300).run(scenario_id, observer=observe)
+            with cls.runs_lock:
+                cls.runs[run_id]["status"] = "COMPLETED"
+                cls.runs[run_id]["active_nodes"] = []
+                cls.runs[run_id]["result"] = result.to_dict()
+        except Exception as exc:
+            with cls.runs_lock:
+                cls.runs[run_id]["status"] = "FAILED"
+                cls.runs[run_id]["active_nodes"] = []
+                cls.runs[run_id]["error"] = str(exc)
+
+
+def serve(host: str = "127.0.0.1", port: int = 8080) -> None:
+    server = ThreadingHTTPServer((host, port), POCRequestHandler)
+    print(f"CreditAgent POC: http://{host}:{port}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
