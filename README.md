@@ -37,7 +37,7 @@ PYTHONPATH=src python3 -m credit_agent_poc serve --port 8080
 
 Mở [http://127.0.0.1:8080](http://127.0.0.1:8080), chọn scenario và bấm **Chạy kịch bản**. UI hiển thị:
 
-- Agent đang `RUNNING`, `COMPLETED` hoặc `PENDING` theo thời gian thực; A2–A4 có thể cùng `RUNNING` trong fan-out.
+- Execution status (`RUNNING`, `COMPLETED`, `PENDING`) được tách khỏi business outcome (`PASS` xanh, `WARNING` vàng, `ESCALATE` tím, `FAIL` đỏ); A2–A4 có thể cùng `RUNNING` trong fan-out.
 - Workflow canvas chia đúng năm stage: Evidence Production, Credit Challenge, Deal Structuring, Risk Committee và Advisory Opinion/Control.
 - Fork/join barrier, debate direction, manager/judge và decision boundary được thể hiện trực tiếp trên graph.
 - 13 node và State version sau mỗi node.

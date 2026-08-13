@@ -11,6 +11,7 @@ from typing import Any, Callable, Optional
 from .agents import AGENT_NAMES, AgentExecution, AgentRuntime
 from .model import ModelAdapter, ScenarioModel
 from .models import AuditEvent, CreditState, StatePatch, apply_patch
+from .outcomes import build_outcome_map
 from .scenarios import SCENARIOS, Scenario
 from .tools import ToolGateway
 
@@ -40,6 +41,7 @@ class RunResult:
             "duration_ms": self.duration_ms,
             "pipeline": PIPELINE,
             "checkpoints": self.checkpoints,
+            "node_outcomes": build_outcome_map(self.state),
             "state": self.state.public_snapshot(),
         }
 
