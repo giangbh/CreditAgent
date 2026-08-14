@@ -98,7 +98,7 @@ class HumanDecisionTests(unittest.TestCase):
         self.assertEqual(report["override_ai_count"], 1)
         self.assertEqual(report["override_rate_pct"], 25.0)
         self.assertEqual(report["agreement_rate_pct"], 75.0)
-        self.assertEqual(report["quality_index"], "BALANCED_AUDITED")
+        self.assertEqual(report["qa_sampling_tier"], "ROUTINE_QA_SAMPLING")
 
 
 if __name__ == "__main__":

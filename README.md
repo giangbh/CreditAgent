@@ -71,17 +71,17 @@ Bạn cũng có thể click trực tiếp một agent trên workflow canvas đ�
 | `reject_weak_cashflow_high_collateral` | Collateral cao nhưng DSCR không đủ | `REJECT_INSUFFICIENT_EVIDENCE` |
 | `reject_tool_failure` | Cashflow backend lỗi và workflow fail closed | `REJECT_INSUFFICIENT_EVIDENCE` |
 
-Kết quả baseline của `ScenarioModel`: 6/6 scenarios khớp expected outcome, mỗi case chạy đủ 13 agents và khoảng 31–32 simulated tool calls.
+Kết quả baseline của `ScenarioModel`: **6/6 Orchestration & Control Contract Tests Passed** (xác minh tính đúng đắn của luồng đồ thị DAG và Deterministic Approval Control Plane; không dùng làm thước đo độ chính xác phán đoán của LLM production).
 
 ## Luồng orchestration
 
 ```mermaid
 flowchart LR
-    A1["A1 Intake"] --> F["Evidence fan-out"]
-    F --> A2["A2 Cashflow"]
-    F --> A3["A3 Integrity"]
-    F --> A4["A4 Capacity"]
-    A2 --> B["Barrier"]
+    A1["A1 Intake"] --> F["Evidence Fan-out Snapshot"]
+    F --> A2["A2 Cashflow (Sao kê ngân hàng)"]
+    F --> A3["A3 Integrity (Đồ thị giao dịch)"]
+    F --> A4["A4 Capacity (BCTC gốc từ A1)"]
+    A2 --> B["Barrier Merge"]
     A3 --> B
     A4 --> B
     B --> A5["A5 Policy"]
@@ -98,9 +98,9 @@ flowchart LR
 
 ## Model modes
 
-### Offline `ScenarioModel`
+### Offline `ScenarioModel` (Contract Test Double)
 
-Đây là model double có output tái lập. Nó vẫn nhận Base Prompt, Role Prompt và bounded context qua `ModelAdapter`. Mục đích là kiểm tra orchestration và control mà không phụ thuộc network, API key hoặc model nondeterminism.
+Đây là model double có output tái lập. Nó vẫn nhận Base Prompt, Role Prompt và bounded context qua `ModelAdapter`. Mục đích là kiểm tra hợp đồng điều phối (DAG contract) và control state machine mà không phụ thuộc network, API key hoặc model nondeterminism.
 
 ### OpenAI-compatible endpoint
 
