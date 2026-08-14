@@ -8,3 +8,5 @@ demo-output/
 .env
 
 .gstack/
+graphify-out/
+*.db

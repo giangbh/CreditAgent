@@ -8,14 +8,21 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 from urllib.parse import urlparse
 
+from .db import StateRepository
 from .orchestrator import CreditOrchestrator
 from .scenarios import SCENARIOS, scenario_catalog
 
 
 class POCRequestHandler(BaseHTTPRequestHandler):
-    orchestrator = CreditOrchestrator()
+    db_path: str = "credit_agent.db"
+    orchestrator: Optional[CreditOrchestrator] = None
     runs: dict[str, dict] = {}
     runs_lock = threading.Lock()
+
+    @classmethod
+    def get_orchestrator(cls, step_delay_ms: int = 0) -> CreditOrchestrator:
+        repo = StateRepository(db_path=cls.db_path)
+        return CreditOrchestrator(db_repository=repo, step_delay_ms=step_delay_ms)
 
     def log_message(self, format: str, *args: object) -> None:
         return
@@ -34,7 +41,7 @@ class POCRequestHandler(BaseHTTPRequestHandler):
             self._json(scenario_catalog())
             return
         if path == "/api/health":
-            self._json({"status": "ok", "service": "credit-agent-poc"})
+            self._json({"status": "ok", "service": "credit-agent-poc", "db": self.db_path})
             return
         status_prefix = "/api/run-status/"
         if path.startswith(status_prefix):
@@ -93,7 +100,8 @@ class POCRequestHandler(BaseHTTPRequestHandler):
             self._json({"error": "unknown_scenario", "scenario_id": scenario_id}, HTTPStatus.NOT_FOUND)
             return
         try:
-            result = self.orchestrator.run(scenario_id)
+            orchestrator = self.get_orchestrator()
+            result = orchestrator.run(scenario_id)
             self._json(result.to_dict())
         except Exception as exc:
             self._json({"error": "run_failed", "message": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -111,7 +119,8 @@ class POCRequestHandler(BaseHTTPRequestHandler):
                     run["active_nodes"].remove(node_id)
 
         try:
-            result = CreditOrchestrator(step_delay_ms=300).run(scenario_id, observer=observe)
+            orchestrator = cls.get_orchestrator(step_delay_ms=300)
+            result = orchestrator.run(scenario_id, observer=observe)
             with cls.runs_lock:
                 cls.runs[run_id]["status"] = "COMPLETED"
                 cls.runs[run_id]["active_nodes"] = []
@@ -123,9 +132,10 @@ class POCRequestHandler(BaseHTTPRequestHandler):
                 cls.runs[run_id]["error"] = str(exc)
 
 
-def serve(host: str = "127.0.0.1", port: int = 8080) -> None:
+def serve(host: str = "127.0.0.1", port: int = 8080, db_path: str = "credit_agent.db") -> None:
+    POCRequestHandler.db_path = db_path
     server = ThreadingHTTPServer((host, port), POCRequestHandler)
-    print(f"CreditAgent POC: http://{host}:{port}")
+    print(f"CreditAgent POC (localDB: {db_path}): http://{host}:{port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
+from .db import StateRepository
 from .model import OpenAICompatibleModel, ScenarioModel
 from .orchestrator import CreditOrchestrator
 from .report import write_html, write_index, write_json
@@ -33,16 +34,25 @@ def build_parser() -> argparse.ArgumentParser:
     run = sub.add_parser("run", help="run one scenario")
     run.add_argument("--scenario", choices=SCENARIOS, default="approve_conditions")
     run.add_argument("--model", choices=["mock", "openai-compatible"], default="mock")
+    run.add_argument("--engine", choices=["temporal", "temporal-cluster", "legacy"], default="temporal")
+    run.add_argument("--db-path", type=str, default="credit_agent.db", help="SQLite localDB database path")
     run.add_argument("--json", action="store_true", help="print the full run as JSON")
     run.add_argument("--output-dir", type=Path, help="write JSON and HTML reports")
 
     run_all = sub.add_parser("run-all", help="run all scenarios")
     run_all.add_argument("--model", choices=["mock", "openai-compatible"], default="mock")
+    run_all.add_argument("--engine", choices=["temporal", "temporal-cluster", "legacy"], default="temporal")
+    run_all.add_argument("--db-path", type=str, default="credit_agent.db", help="SQLite localDB database path")
     run_all.add_argument("--output-dir", type=Path, default=Path("demo-output"))
 
     web = sub.add_parser("serve", help="start the local review UI")
     web.add_argument("--host", default="127.0.0.1")
     web.add_argument("--port", type=int, default=8080)
+    web.add_argument("--db-path", type=str, default="credit_agent.db", help="SQLite localDB database path")
+
+    worker = sub.add_parser("worker", help="start a native Temporal Worker process")
+    worker.add_argument("--target-host", default="localhost:7233", help="Temporal Server cluster host")
+    worker.add_argument("--task-queue", default="credit-approval-queue", help="Temporal task queue name")
     return parser
 
 
@@ -52,10 +62,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(json.dumps(scenario_catalog(), ensure_ascii=False, indent=2))
         return 0
     if args.command == "serve":
-        serve(args.host, args.port)
+        serve(args.host, args.port, db_path=args.db_path)
+        return 0
+    if args.command == "worker":
+        import asyncio
+        from .workflow import start_temporal_worker
+        asyncio.run(start_temporal_worker(target_host=args.target_host, task_queue=args.task_queue))
         return 0
 
-    orchestrator = CreditOrchestrator(model=_model(args.model))
+    repo = StateRepository(db_path=args.db_path)
+    orchestrator = CreditOrchestrator(model=_model(args.model), db_repository=repo, engine=args.engine)
     if args.command == "run":
         result = orchestrator.run(args.scenario)
         if args.json:

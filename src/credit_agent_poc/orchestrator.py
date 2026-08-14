@@ -9,12 +9,14 @@ from dataclasses import dataclass, replace
 from typing import Any, Callable, Optional
 
 from .agents import AGENT_NAMES, AgentExecution, AgentRuntime
+from .db import StateRepository
 from .model import ModelAdapter, ScenarioModel
 from .models import AuditEvent, CreditState, StatePatch, apply_patch
 from .outcomes import OUTCOME_POLICY, build_outcome_map
 from .risk_propagation import build_risk_propagation
 from .scenarios import SCENARIOS, Scenario
 from .tools import ToolGateway
+from .workflow import TemporalWorkflowEngine
 
 
 PIPELINE = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11", "A12", "A13"]
@@ -57,23 +59,52 @@ class CreditOrchestrator:
         self,
         model: Optional[ModelAdapter] = None,
         gateway: Optional[ToolGateway] = None,
+        db_repository: Optional[StateRepository] = None,
+        engine: str = "temporal",
         step_delay_ms: int = 0,
     ) -> None:
         self.model = model or ScenarioModel()
         self.gateway = gateway or ToolGateway()
-        self.runtime = AgentRuntime(self.model, self.gateway)
+        self.repository = db_repository or StateRepository(db_path=":memory:")
+        self.engine_type = engine
         self.step_delay_ms = step_delay_ms
+        self.runtime = AgentRuntime(self.model, self.gateway)
+        self.temporal_engine = TemporalWorkflowEngine(
+            model=self.model,
+            gateway=self.gateway,
+            db_repository=self.repository,
+            step_delay_ms=self.step_delay_ms,
+        )
 
     def run(self, scenario_id: str, observer: Optional[RunObserver] = None) -> RunResult:
         if scenario_id not in SCENARIOS:
             raise KeyError(f"unknown scenario: {scenario_id}")
         scenario = SCENARIOS[scenario_id]
+
+        if self.engine_type in ("temporal", "temporal-cluster"):
+            if self.engine_type == "temporal-cluster":
+                import asyncio
+                asyncio.run(self.temporal_engine.execute_native_temporal_cluster(scenario_id))
+            state, checkpoints, duration_ms = self.temporal_engine.execute_workflow(scenario_id, observer)
+            actual = state.coapproval_opinion["decision"]
+            return RunResult(
+                scenario_id=scenario.scenario_id,
+                scenario_name=scenario.name,
+                expected_outcome=scenario.expected_outcome,
+                actual_outcome=actual,
+                outcome_matches=actual == scenario.expected_outcome,
+                duration_ms=duration_ms,
+                state=state,
+                checkpoints=checkpoints,
+            )
+
         state = CreditState(
             case_id=f"CASE-{scenario.scenario_id.upper()}",
             scenario_id=scenario.scenario_id,
             run_id=str(uuid.uuid4()),
         )
         state.audit.append(AuditEvent(event="run_started", node_id="ORCHESTRATOR", details={"scenario": scenario_id}))
+        self.repository.save_case(state)
         checkpoints: list[dict[str, Any]] = []
         started = time.perf_counter()
 
@@ -95,6 +126,7 @@ class CreditOrchestrator:
                 details={"actual_outcome": actual, "duration_ms": duration_ms},
             )
         )
+        self.repository.save_case(state)
         return RunResult(
             scenario_id=scenario.scenario_id,
             scenario_name=scenario.name,
