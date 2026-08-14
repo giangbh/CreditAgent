@@ -19,7 +19,7 @@
     .topbar { background:var(--navy); color:white; border-bottom:4px solid #2f80c9 }
     .topbar-inner { max-width:1500px; margin:auto; padding:22px 28px; display:flex; align-items:center; justify-content:space-between; gap:20px }
     .brand h1 { margin:0; font-size:24px; letter-spacing:-.02em }.brand p { margin:3px 0 0; color:#c7d8e8 }
-    .system-boundary { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end }
+    .system-boundary { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center }
     .boundary-chip { border:1px solid #54718c; color:#dbeafe; padding:5px 9px; font-size:11px; font-weight:700; letter-spacing:.04em }
     main { max-width:1500px; margin:auto; padding:24px 28px 48px }
     .layout { display:grid; grid-template-columns:320px minmax(0,1fr); gap:20px; align-items:start }.layout > * { min-width:0 }
@@ -90,22 +90,233 @@
 <body>
   <header class="topbar">
     <div class="topbar-inner">
-      <div class="brand"><h1>CreditAgent POC</h1><p>Luồng thẩm định tín dụng đa tác nhân có kiểm soát</p></div>
+      <div class="brand">
+        <h1>CreditAgent POC</h1>
+        <p data-i18n="app_subtitle">Luồng thẩm định tín dụng đa tác nhân có kiểm soát</p>
+      </div>
       <div class="system-boundary" aria-label="System boundaries">
-        <span class="boundary-chip">13 LOGICAL AGENTS</span><span class="boundary-chip">SIMULATED TOOLS</span><span class="boundary-chip">HUMAN FINAL AUTHORITY</span>
+        <div style="display:flex; align-items:center; gap:6px; margin-right:8px;">
+          <label for="lang-select" style="font-size:11px; font-weight:700; color:#c7d8e8;">🌐 Lang:</label>
+          <select id="lang-select" style="background:#1e3a5f; color:white; border:1px solid #486581; padding:4px 8px; font-size:11px; font-weight:700; border-radius:4px; cursor:pointer;" onchange="setLanguage(this.value)">
+            <option value="vi">🇻🇳 Tiếng Việt</option>
+            <option value="en">🇬🇧 English</option>
+          </select>
+        </div>
+        <span class="boundary-chip" id="engine-chip" style="background:#2563eb; color:white; font-weight:800;">ENGINE: TEMPORAL.IO</span>
+        <span class="boundary-chip" data-i18n="agents_chip">13 LOGICAL AGENTS</span>
+        <span class="boundary-chip" data-i18n="tools_chip">SIMULATED TOOLS</span>
+        <span class="boundary-chip" data-i18n="authority_chip">HUMAN FINAL AUTHORITY</span>
       </div>
     </div>
   </header>
   <main>
     <div class="layout">
-      <aside class="panel sidebar"><h2>Kịch bản kiểm thử</h2><div class="scenario-list" id="scenarios"></div><button class="run-button" id="run" disabled>Chạy workflow</button></aside>
-      <section class="panel content" id="content"><div class="empty"><div><h2>Chọn một kịch bản</h2><p>Workflow canvas sẽ hiển thị luồng tuần tự, song song và hai vòng phản biện.</p></div></div></section>
+      <aside class="panel sidebar">
+        <h2 data-i18n="sidebar_title">Kịch bản kiểm thử</h2>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px; font-weight:800; color:var(--muted); display:block; margin-bottom:4px;" data-i18n="engine_label">Backend Execution Engine</label>
+          <select id="engine-select" style="width:100%; padding:6px 8px; font-size:12px; border:1px solid var(--line-strong); background:white;">
+            <option value="auto" data-i18n="engine_auto">⚡ Auto-Detect (Temporal Cluster / SDK)</option>
+            <option value="temporal-cluster" data-i18n="engine_cluster">🚀 Temporal Server Cluster (127.0.0.1:7233)</option>
+            <option value="temporal" data-i18n="engine_sdk">🔄 Temporal.io SDK (In-Memory Engine)</option>
+            <option value="legacy" data-i18n="engine_legacy">🛠️ Mock / Local Engine (Python Threads)</option>
+          </select>
+        </div>
+        <div class="scenario-list" id="scenarios"></div>
+        <button class="run-button" id="run" disabled data-i18n="run_btn">Chạy workflow</button>
+      </aside>
+      <section class="panel content" id="content">
+        <div class="empty">
+          <div>
+            <h2 data-i18n="select_scenario_h2">Chọn một kịch bản</h2>
+            <p data-i18n="select_scenario_p">Workflow canvas sẽ hiển thị luồng tuần tự, song song và hai vòng phản biện.</p>
+          </div>
+        </div>
+      </section>
     </div>
   </main>
   <script>
     const $ = id => document.getElementById(id); let selected = null, checkpointData = [];
     const esc = value => String(value ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
     const pretty = value => esc(JSON.stringify(value,null,2));
+
+    const I18N = {
+      vi: {
+        app_subtitle: "Luồng thẩm định tín dụng đa tác nhân có kiểm soát",
+        agents_chip: "13 TÁC NHÂN LÔ-GÍCH",
+        tools_chip: "CÔNG CỤ GIẢ LẬP",
+        authority_chip: "THẨM QUYỀN CUỐI CỦA CON NGƯỜI",
+        sidebar_title: "Kịch bản kiểm thử",
+        engine_label: "Backend Execution Engine",
+        engine_auto: "⚡ Tự động phát hiện (Temporal Cluster / SDK)",
+        engine_cluster: "🚀 Temporal Server Cluster (127.0.0.1:7233)",
+        engine_sdk: "🔄 Temporal.io SDK (Engine trong bộ nhớ)",
+        engine_legacy: "🛠️ Động cơ Giả lập / Cục bộ (Python Threads)",
+        run_btn: "Chạy workflow",
+        select_scenario_h2: "Chọn một kịch bản",
+        select_scenario_p: "Workflow canvas sẽ hiển thị luồng tuần tự, song song và hai vòng phản biện.",
+        backend_engine: "Backend Execution Engine",
+        open_temporal_ui: "[Mở Temporal Web UI Port 8233 ↗]",
+        orchestration_h2: "Điều phối Tác nhân (Agent Orchestration)",
+        orchestration_p: "Đọc từ trên xuống. Mỗi stage thể hiện đúng dependency và execution mode.",
+        current_execution: "Tiến trình hiện tại",
+        legend_running: "Running (Đang chạy)",
+        legend_pass: "Pass (Đạt)",
+        legend_warning: "Warning (Cảnh báo)",
+        legend_escalate: "Escalate (Thang cấp)",
+        legend_fail: "Fail / Block (Từ chối/Chặn)",
+        legend_pending: "Pending (Chờ duyệt)",
+        legend_note: "Màu = kết quả nghiệp vụ; nhãn hiển thị trạng thái thực thi",
+        focus_outcome: "Lọc kết quả",
+        risk_propagation: "Lan truyền rủi ro",
+        risk_empty: "Không có chain rủi ro lan truyền qua nhiều agent.",
+        stage1_title: "1. Sản xuất bằng chứng (Evidence Production)",
+        stage1_desc: "Nạp liệu tuần tự → phân tích song song → barrier → chính sách",
+        stage2_title: "2. Phản biện tín dụng (Credit Challenge)",
+        stage2_desc: "Tranh luận giới hạn → phán quyết có trọng số bằng chứng",
+        stage3_title: "3. Cấu trúc khoản vay (Deal Structuring)",
+        stage3_desc: "Hạn mức định tính, định giá và ràng buộc chính sách",
+        stage4_title: "4. Hội đồng Rủi ro (Risk Committee)",
+        stage4_desc: "Góc nhìn từ 3 phía với lập luận phản biện rõ ràng",
+        stage5_title: "5. Ý kiến tư vấn & Kiểm soát (Opinion & Control)",
+        stage5_desc: "Khuyến nghị LLM được tách biệt khỏi thẩm quyền phê duyệt",
+        decision_boundary_title: "Ranh giới phê duyệt (Decision Boundary)",
+        decision_boundary_desc: "A13 chỉ tạo DRAFT opinion. Approval Control kiểm tra hard blocks và chỉ chuyển tới human review.",
+        human_gate_title: "Luồng Quyết Định Phê Duyệt Của Con Người (Human Final Decision Panel)",
+        case_id_label: "MÃ KHOẢN VAY / CASE ID",
+        ai_recommendation_label: "Ý KIẾN ĐỀ XUẤT CỦA AI (A13 DRAFT OPINION)",
+        user_id_label: "USER ID CÁN BỘ",
+        fullname_label: "HỌ VÀ TÊN CÁN BỘ",
+        role_label: "CHỨC DANH / VAI TRÒ",
+        branch_label: "CHI NHÁNH / ĐƠN VỊ",
+        human_choice_title: "LỰA CHỌN QUYẾT ĐỊNH PHÊ DUYỆT CỦA CON NGƯỜI:",
+        choice_agree: "🟢 Phê duyệt theo AI (AGREE WITH AI)",
+        choice_override_approve: "🟡 Phủ quyết AI - Chấp nhận vay (OVERRIDE AI)",
+        choice_override_reject: "🔴 Phủ quyết AI - Từ chối cho vay (OVERRIDE / REJECT)",
+        override_category_label: "HẠNG MỤC LÝ DO PHỦ QUYẾT AI (OVERRIDE CATEGORY)",
+        override_justification_label: "LỜI GIẢI TRÌNH CHI TIẾT (BẮT BUỘC NHẬP LÝ DO > 10 KÝ TỰ):",
+        override_placeholder: "Nhập lời giải trình căn cứ phê duyệt hoặc bác bỏ ý kiến AI tại đây...",
+        sign_submit_btn: "🔏 KÝ SỐ & PHÁT HÀNH QUYẾT ĐỊNH PHÊ DUYỆT",
+        report_section_title: "Báo Cáo Đánh Giá Chất Lượng Cán Bộ Phê Duyệt (Approver Quality Analytics)",
+        select_officer_label: "CHỌN CÁN BỘ:",
+        user_id_placeholder: "Nhập User ID (vd: USR-8821 hoặc để trống xem tất cả)",
+        load_report_btn: "TẢI BÁO CÁO CHẤT LƯỢNG",
+        report_help: "Nhấn \"Tải báo cáo chất lượng\" để tra cứu lịch sử phê duyệt và chỉ số chất lượng của cán bộ.",
+        officer: "Cán bộ",
+        total_decisions: "Tổng hồ sơ đã duyệt",
+        override_rate: "Tỷ lệ Override AI",
+        compliance_index: "Chỉ số tuân thủ phê duyệt (Quality Index):",
+        col_time: "Thời gian",
+        col_case: "Case ID",
+        col_approver: "Người duyệt",
+        col_ai: "Ý kiến AI",
+        col_human: "Quyết định Con người",
+        col_type: "Loại",
+        col_justification: "Lời giải trình Override",
+        col_hash: "Mã băm chữ ký số",
+        agree_with_ai: "Đồng ý với AI",
+        no_decisions: "Chưa có dữ liệu quyết định phê duyệt nào của cán bộ."
+      },
+      en: {
+        app_subtitle: "Controlled Multi-Agent Credit Assessment Workflow",
+        agents_chip: "13 LOGICAL AGENTS",
+        tools_chip: "SIMULATED TOOLS",
+        authority_chip: "HUMAN FINAL AUTHORITY",
+        sidebar_title: "Test Scenarios",
+        engine_label: "Backend Execution Engine",
+        engine_auto: "⚡ Auto-Detect (Temporal Cluster / SDK)",
+        engine_cluster: "🚀 Temporal Server Cluster (127.0.0.1:7233)",
+        engine_sdk: "🔄 Temporal.io SDK (In-Memory Engine)",
+        engine_legacy: "🛠️ Mock / Local Engine (Python Threads)",
+        run_btn: "Run Workflow",
+        select_scenario_h2: "Select a Scenario",
+        select_scenario_p: "Workflow canvas will display sequential, parallel fan-out, and two debate rounds.",
+        backend_engine: "Backend Execution Engine",
+        open_temporal_ui: "[Open Temporal Web UI Port 8233 ↗]",
+        orchestration_h2: "Agent Orchestration",
+        orchestration_p: "Read top-down. Each stage reflects exact dependencies and execution modes.",
+        current_execution: "Current execution",
+        legend_running: "Running",
+        legend_pass: "Pass",
+        legend_warning: "Warning",
+        legend_escalate: "Escalate",
+        legend_fail: "Fail / Block",
+        legend_pending: "Pending",
+        legend_note: "Color = business outcome; label displays execution status",
+        focus_outcome: "Focus outcome",
+        risk_propagation: "Risk propagation",
+        risk_empty: "No multi-agent risk propagation chains.",
+        stage1_title: "1. Evidence Production",
+        stage1_desc: "Sequential intake → parallel analysis → barrier → policy",
+        stage2_title: "2. Credit Challenge",
+        stage2_desc: "Bounded debate → evidence-weighted judgment",
+        stage3_title: "3. Deal Structuring",
+        stage3_desc: "Deterministic capacity, pricing and policy constraints",
+        stage4_title: "4. Risk Committee",
+        stage4_desc: "Three ordered perspectives with explicit counterpoints",
+        stage5_title: "5. Advisory Opinion & Control",
+        stage5_desc: "LLM recommendation is separated from deterministic authority",
+        decision_boundary_title: "Decision Boundary",
+        decision_boundary_desc: "A13 creates DRAFT opinion only. Approval Control verifies hard blocks and forwards to human review.",
+        human_gate_title: "Approver Decision & Digital Signature (Human Final Decision Panel)",
+        case_id_label: "LOAN CASE ID",
+        ai_recommendation_label: "AI AGENT RECOMMENDATION (A13 DRAFT OPINION)",
+        user_id_label: "OFFICER USER ID",
+        fullname_label: "OFFICER FULL NAME",
+        role_label: "ROLE / TITLE",
+        branch_label: "BRANCH / UNIT",
+        human_choice_title: "HUMAN APPROVING OFFICER DECISION CHOICE:",
+        choice_agree: "🟢 Approve with Conditions (AGREE WITH AI)",
+        choice_override_approve: "🟡 Override AI - Approve Loan (OVERRIDE AI)",
+        choice_override_reject: "🔴 Override AI - Reject Credit (OVERRIDE / REJECT)",
+        override_category_label: "OVERRIDE REASON CATEGORY",
+        override_justification_label: "DETAILED OVERRIDE JUSTIFICATION (REQUIRED > 10 CHARS):",
+        override_placeholder: "Enter detailed justification for overriding AI recommendation here...",
+        sign_submit_btn: "🔏 SIGN DIGITAL SEAL & SUBMIT DECISION",
+        report_section_title: "Approver Quality Analytics & Audit Report",
+        select_officer_label: "SELECT OFFICER:",
+        user_id_placeholder: "Enter User ID (e.g. USR-8821 or leave blank for all)",
+        load_report_btn: "LOAD QUALITY REPORT",
+        report_help: "Click \"Load Quality Report\" to inspect officer decision history and compliance quality index.",
+        officer: "Officer",
+        total_decisions: "Total Decisions",
+        override_rate: "Override Rate",
+        compliance_index: "Approval Compliance (Quality Index):",
+        col_time: "Timestamp",
+        col_case: "Case ID",
+        col_approver: "Approver",
+        col_ai: "AI Opinion",
+        col_human: "Human Decision",
+        col_type: "Type",
+        col_justification: "Override Justification",
+        col_hash: "Digital Seal Hash",
+        agree_with_ai: "Agree with AI",
+        no_decisions: "No approval decision records found for officer."
+      }
+    };
+
+    function currentLang() { return localStorage.getItem('credit_agent_lang') || 'vi'; }
+    function t(key) { return (I18N[currentLang()] && I18N[currentLang()][key]) || (I18N['vi'] && I18N['vi'][key]) || key; }
+
+    function setLanguage(lang) {
+      localStorage.setItem('credit_agent_lang', lang);
+      const sel = $('lang-select');
+      if (sel) sel.value = lang;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (key && t(key)) {
+          if (el.tagName === 'INPUT' && (el.type === 'button' || el.type === 'submit')) {
+            el.value = t(key);
+          } else {
+            el.textContent = t(key);
+          }
+        }
+      });
+      if (typeof loadScenarios === 'function') loadScenarios();
+      if (typeof updateEngineChip === 'function') updateEngineChip();
+      if (selected && typeof loadApproverReport === 'function') loadApproverReport();
+    }
+
     const AGENTS = {
       A1:'Intake & Evidence',A2:'Cashflow Analyst',A3:'Transaction Integrity',A4:'Financial Capacity',A5:'Policy Compliance',
       A6:'Credit Advocate',A7:'Risk Challenger',A8:'Assessment Manager',A9:'Deal Structuring',A10:'Business / Upside',
@@ -127,27 +338,37 @@
       const counts={PASS:0,WARNING:0,ESCALATE:0,FAIL:0}; ids.forEach(id=>{const level=outcomes[id]?.level;if(counts[level]!==undefined)counts[level]++});
       return Object.entries(counts).filter(([,count])=>count).map(([level,count])=>`<span class="stage-count ${level.toLowerCase()}">${level} ${count}</span>`).join('');
     }
-    function stageHead(number,title,description,ids,outcomes){return `<header class="stage-head"><b>${number}. ${title}</b><div class="stage-meta"><span>${description}</span><span class="stage-counts">${stageCounts(ids,outcomes)}</span></div></header>`}
+    function stageHead(numberTitle,description,ids,outcomes){return `<header class="stage-head"><b>${esc(numberTitle)}</b><div class="stage-meta"><span>${esc(description)}</span><span class="stage-counts">${stageCounts(ids,outcomes)}</span></div></header>`}
     function riskPanel(propagation={}){
-      const risks=propagation.risks||[]; if(!risks.length)return `<section class="risk-propagation"><h3>Risk propagation</h3><span class="risk-empty">Không có risk chain lan truyền qua nhiều agent.</span></section>`;
-      return `<section class="risk-propagation"><h3>Risk propagation · ${risks.length} chain</h3><div class="risk-path-list">${risks.map(r=>`<button class="risk-path" onclick='focusRisk(${JSON.stringify(r.path)})'><b>${esc(r.risk_code)}</b><span>${r.path.map(esc).join(' → ')}</span></button>`).join('')}</div></section>`;
+      const risks=propagation.risks||[]; if(!risks.length)return `<section class="risk-propagation"><h3>${t('risk_propagation')}</h3><span class="risk-empty">${t('risk_empty')}</span></section>`;
+      return `<section class="risk-propagation"><h3>${t('risk_propagation')} · ${risks.length} chain</h3><div class="risk-path-list">${risks.map(r=>`<button class="risk-path" onclick='focusRisk(${JSON.stringify(r.path)})'><b>${esc(r.risk_code)}</b><span>${r.path.map(esc).join(' → ')}</span></button>`).join('')}</div></section>`;
     }
-    function workflowCanvas(run,versions={},outcomes={},propagation={}){
+    function workflowCanvas(run,versions={},outcomes={},propagation={},result=null){
       const observedVersions=Object.fromEntries((run?.events||[]).filter(e=>e.event==='NODE_COMPLETED').map(e=>[e.node_id,e.state_version])); versions={...observedVersions,...versions};
       const riskCounts={}; (propagation.risks||[]).forEach(r=>r.path.forEach(id=>riskCounts[id]=(riskCounts[id]||0)+1));
       const draw=id=>node(id,run,versions,outcomes,riskCounts);
-      const active=(run?.active_nodes||[]).map(id=>`${id} ${AGENTS[id]}`).join(' · ')||((run?.status==='COMPLETED')?'Workflow completed':'Waiting to run');
-      return `<section class="workflow-shell"><header class="workflow-head"><div><h2>Agent orchestration</h2><p>Đọc từ trên xuống. Mỗi stage thể hiện đúng dependency và execution mode.</p></div><div class="live-state"><small>Current execution</small><strong>${esc(active)}</strong></div></header>
-        <div class="legend"><span><i class="l-running"></i> Running</span><span><i class="l-pass"></i> Pass</span><span><i class="l-warning"></i> Warning</span><span><i class="l-escalate"></i> Escalate</span><span><i class="l-fail"></i> Fail / Block</span><span><i class="l-pending"></i> Pending</span><span>Màu = business outcome; nhãn vẫn hiển thị execution status</span></div>
-        <div class="outcome-filters"><strong>Focus outcome</strong>${['ALL','ISSUES','PASS','WARNING','ESCALATE','FAIL'].map(level=>`<button class="filter-button${level==='ALL'?' active':''}" data-filter="${level}" aria-pressed="${level==='ALL'}" onclick="setOutcomeFilter('${level}')">${level}</button>`).join('')}</div>${riskPanel(propagation)}<div class="workflow">
-        <section class="stage">${stageHead(1,'Evidence production','Sequential intake → parallel analysis → barrier → policy',['A1','A2','A3','A4','A5'],outcomes)}<div class="stage-body">
-          ${draw('A1')}<div class="flow-arrow"></div><div class="parallel-block"><div class="parallel-label">Fan-out · chạy song song trên cùng State snapshot</div><div class="parallel-nodes">${draw('A2')}${draw('A3')}${draw('A4')}</div></div><div class="barrier"><div class="barrier-line"></div>JOIN<br>BARRIER</div>${draw('A5')}
+      const active=(run?.active_nodes||[]).map(id=>`${id} ${AGENTS[id]}`).join(' · ')||((run?.status==='COMPLETED')?t('current_execution')+': Completed':t('current_execution')+': Waiting');
+      
+      const engineInfo = run?.engine_info || result?.engine_info || run?.result?.engine_info;
+      const engineLabel = engineInfo?.engine_label || (currentLang()==='en' ? 'Temporal.io Workflow Engine (In-Memory)' : 'Temporal.io Workflow Engine (Giả lập trong bộ nhớ)');
+      const temporalLink = engineInfo?.temporal_ui_url ? `<a href="${engineInfo.temporal_ui_url}" target="_blank" rel="noopener" style="color:#38bdf8; font-weight:800; text-decoration:underline;">${t('open_temporal_ui')}</a>` : '';
+
+      return `<section class="workflow-shell">
+        <div style="background:#0f172a; color:#f8fafc; padding:8px 16px; font-size:12px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155;">
+          <span>⚙️ <strong>${t('backend_engine')}:</strong> <span style="color:#38bdf8; font-weight:800;">${esc(engineLabel)}</span></span>
+          ${temporalLink}
+        </div>
+        <header class="workflow-head"><div><h2>${t('orchestration_h2')}</h2><p>${t('orchestration_p')}</p></div><div class="live-state"><small>${t('current_execution')}</small><strong>${esc(active)}</strong></div></header>
+        <div class="legend"><span><i class="l-running"></i> ${t('legend_running')}</span><span><i class="l-pass"></i> ${t('legend_pass')}</span><span><i class="l-warning"></i> ${t('legend_warning')}</span><span><i class="l-escalate"></i> ${t('legend_escalate')}</span><span><i class="l-fail"></i> ${t('legend_fail')}</span><span><i class="l-pending"></i> ${t('legend_pending')}</span><span>${t('legend_note')}</span></div>
+        <div class="outcome-filters"><strong>${t('focus_outcome')}</strong>${['ALL','ISSUES','PASS','WARNING','ESCALATE','FAIL'].map(level=>`<button class="filter-button${level==='ALL'?' active':''}" data-filter="${level}" aria-pressed="${level==='ALL'}" onclick="setOutcomeFilter('${level}')">${level}</button>`).join('')}</div>${riskPanel(propagation)}<div class="workflow">
+        <section class="stage">${stageHead(t('stage1_title'),t('stage1_desc'),['A1','A2','A3','A4','A5'],outcomes)}<div class="stage-body">
+          ${draw('A1')}<div class="flow-arrow"></div><div class="parallel-block"><div class="parallel-label">Fan-out · parallel execution on same state snapshot</div><div class="parallel-nodes">${draw('A2')}${draw('A3')}${draw('A4')}</div></div><div class="barrier"><div class="barrier-line"></div>JOIN<br>BARRIER</div>${draw('A5')}
         </div></section><div class="stage-connector"></div>
-        <section class="stage">${stageHead(2,'Credit challenge','Bounded debate → evidence-weighted judgment',['A6','A7','A8'],outcomes)}<div class="stage-body"><div class="debate-box"><span class="debate-label">Credit debate · 1 round</span>${draw('A6')}<div class="flow-arrow bidirectional"></div>${draw('A7')}</div><div class="flow-arrow"></div>${draw('A8')}</div></section><div class="stage-connector"></div>
-        <section class="stage">${stageHead(3,'Deal structuring','Deterministic capacity, pricing and policy constraints',['A9'],outcomes)}<div class="stage-body">${draw('A9')}</div></section><div class="stage-connector"></div>
-        <section class="stage">${stageHead(4,'Risk committee','Three ordered perspectives with explicit counterpoints',['A10','A11','A12'],outcomes)}<div class="stage-body"><div class="debate-box risk-box"><span class="debate-label">Risk debate · 1 round</span>${draw('A10')}<div class="flow-arrow"></div>${draw('A11')}<div class="flow-arrow"></div>${draw('A12')}</div></div></section><div class="stage-connector"></div>
-        <section class="stage">${stageHead(5,'Advisory opinion and control','LLM recommendation is separated from deterministic authority',['A13','CONTROL'],outcomes)}<div class="stage-body">${draw('A13')}<div class="flow-arrow"></div>${draw('CONTROL')}</div></section>
-        <div class="decision-boundary"><b>Decision boundary</b><span>A13 chỉ tạo DRAFT opinion. Approval Control kiểm tra hard blocks và chỉ chuyển tới human review.</span></div>
+        <section class="stage">${stageHead(t('stage2_title'),t('stage2_desc'),['A6','A7','A8'],outcomes)}<div class="stage-body"><div class="debate-box"><span class="debate-label">Credit debate · 1 round</span>${draw('A6')}<div class="flow-arrow bidirectional"></div>${draw('A7')}</div><div class="flow-arrow"></div>${draw('A8')}</div></section><div class="stage-connector"></div>
+        <section class="stage">${stageHead(t('stage3_title'),t('stage3_desc'),['A9'],outcomes)}<div class="stage-body">${draw('A9')}</div></section><div class="stage-connector"></div>
+        <section class="stage">${stageHead(t('stage4_title'),t('stage4_desc'),['A10','A11','A12'],outcomes)}<div class="stage-body"><div class="debate-box risk-box"><span class="debate-label">Risk debate · 1 round</span>${draw('A10')}<div class="flow-arrow"></div>${draw('A11')}<div class="flow-arrow"></div>${draw('A12')}</div></div></section><div class="stage-connector"></div>
+        <section class="stage">${stageHead(t('stage5_title'),t('stage5_desc'),['A13','CONTROL'],outcomes)}<div class="stage-body">${draw('A13')}<div class="flow-arrow"></div>${draw('CONTROL')}</div></section>
+        <div class="decision-boundary"><b>${t('decision_boundary_title')}</b><span>${t('decision_boundary_desc')}</span></div>
         ${run?.events?`<details class="event-log"><summary>Execution event stream (${run.events.length})</summary><pre class="raw-json">${pretty(run.events)}</pre></details>`:''}
       </div></section>`;
     }
@@ -168,7 +389,7 @@
       if(checkpointIndex>=0&&select){select.value=String(checkpointIndex);showCheckpoint(checkpointIndex);$('state-timeline')?.scrollIntoView({behavior:'smooth',block:'start'})}
       const detail=document.getElementById(`trace-${id}`); if(detail)detail.open=true;
     }
-    function stateTimeline(checkpoints){return `<section class="section"><h2>State timeline · giải trình sau từng bước</h2><div class="state-timeline" id="state-timeline"><div class="state-toolbar"><label>Checkpoint<select id="state-checkpoint" onchange="showCheckpoint(Number(this.value))">${checkpoints.map((cp,index)=>`<option value="${index}">${esc(cp.checkpoint_id)} · sau ${esc(cp.after_node)} · State v${esc(cp.state_version)}</option>`).join('')}</select></label><div class="state-proof"><b id="state-agent"></b><span id="state-hash"></span></div></div><div class="state-view"><aside class="state-context"><small>Changed paths</small><div class="changed-paths" id="state-paths"></div></aside><pre class="state-json" id="state-json"></pre></div></div></section>`}
+    function stateTimeline(checkpoints){return `<section class="section"><h2>State timeline · ${currentLang()==='en'?'step-by-step state evolution':'giải trình sau từng bước'}</h2><div class="state-timeline" id="state-timeline"><div class="state-toolbar"><label>Checkpoint<select id="state-checkpoint" onchange="showCheckpoint(Number(this.value))">${checkpoints.map((cp,index)=>`<option value="${index}">${esc(cp.checkpoint_id)} · after ${esc(cp.after_node)} · State v${esc(cp.state_version)}</option>`).join('')}</select></label><div class="state-proof"><b id="state-agent"></b><span id="state-hash"></span></div></div><div class="state-view"><aside class="state-context"><small>Changed paths</small><div class="changed-paths" id="state-paths"></div></aside><pre class="state-json" id="state-json"></pre></div></div></section>`}
     function showCheckpoint(index){
       const cp=checkpointData[index];if(!cp)return;
       $('state-agent').textContent=`${cp.after_node} · ${cp.agent_name}`;$('state-hash').textContent=`${cp.checkpoint_id} · State v${cp.state_version} · SHA-256 ${cp.state_hash}`;
@@ -185,68 +406,68 @@
       $('content').innerHTML=`<div class="summary"><div class="metric"><small>A13 draft opinion</small><b><span class="badge ${resultClass(data.actual_outcome)}">${esc(data.actual_outcome)}</span></b></div><div class="metric"><small>Deterministic control</small><b>${esc(control.status)}</b></div><div class="metric"><small>Expected outcome</small><b>${data.outcome_matches?'MATCH':'MISMATCH'} · ${esc(data.duration_ms)} ms</b></div></div>
         ${workflowCanvas(completedRun,versions,data.node_outcomes||{},data.risk_propagation||{})}
         ${stateTimeline(checkpointData)}
-        <section class="section"><h2>Input / output trace theo từng Agent</h2><div class="trace">${traces}</div></section>
+        <section class="section"><h2>Input / output trace</h2><div class="trace">${traces}</div></section>
         <section class="section"><h2>Evidence reports</h2><div class="grid">${reports}</div></section>
         <section class="section"><h2>Debate records</h2><div class="grid"><div class="data-card"><h3>Credit debate</h3><pre>${pretty(s.credit_debate)}</pre></div><div class="data-card"><h3>Risk committee</h3><pre>${pretty(s.risk_debate)}</pre></div></div></section>
         <section class="section"><h2>Final advisory output</h2><div class="grid"><div class="data-card"><h3>CoApprovalOpinion · DRAFT</h3><pre>${pretty(opinion)}</pre></div><div class="data-card"><h3>Approval Control</h3><pre>${pretty(control)}</pre></div></div></section>
         <section class="section" id="human-decision-section">
-          <h2>Luồng Quyết Định Phê Duyệt Của Con Người (Human Final Decision Panel)</h2>
+          <h2>${t('human_gate_title')}</h2>
           <div class="panel" style="padding: 18px; border-left: 4px solid var(--blue);">
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
               <div>
-                <label style="font-weight: 800; font-size: 11px; color: var(--muted); display: block;">MÃ KHOẢN VAY / CASE ID</label>
+                <label style="font-weight: 800; font-size: 11px; color: var(--muted); display: block;">${t('case_id_label')}</label>
                 <input type="text" id="hd-case-id" value="${esc(data.state.case_id)}" readonly style="width: 100%; padding: 8px; border: 1px solid var(--line); background: #f8fafc; font-weight: 700;">
               </div>
               <div>
-                <label style="font-weight: 800; font-size: 11px; color: var(--muted); display: block;">Ý KIẾN ĐỀ XUẤT CỦA AI (A13 DRAFT OPINION)</label>
+                <label style="font-weight: 800; font-size: 11px; color: var(--muted); display: block;">${t('ai_recommendation_label')}</label>
                 <input type="text" id="hd-ai-decision" value="${esc(data.actual_outcome)}" readonly style="width: 100%; padding: 8px; border: 1px solid var(--line); background: #f8fafc; font-weight: 700; color: var(--blue);">
               </div>
             </div>
 
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 15px; background: #f1f5f9; padding: 12px; border: 1px solid var(--line);">
               <div>
-                <label style="font-weight: 800; font-size: 10px; color: var(--muted); display: block;">USER ID CÁN BỘ</label>
+                <label style="font-weight: 800; font-size: 10px; color: var(--muted); display: block;">${t('user_id_label')}</label>
                 <input type="text" id="hd-user-id" value="USR-8821" style="width: 100%; padding: 6px; border: 1px solid var(--line-strong);">
               </div>
               <div>
-                <label style="font-weight: 800; font-size: 10px; color: var(--muted); display: block;">HỌ VÀ TÊN CÁN BỘ</label>
+                <label style="font-weight: 800; font-size: 10px; color: var(--muted); display: block;">${t('fullname_label')}</label>
                 <input type="text" id="hd-fullname" value="Nguyễn Văn A" style="width: 100%; padding: 6px; border: 1px solid var(--line-strong);">
               </div>
               <div>
-                <label style="font-weight: 800; font-size: 10px; color: var(--muted); display: block;">CHỨC DANH / VAI TRÒ</label>
+                <label style="font-weight: 800; font-size: 10px; color: var(--muted); display: block;">${t('role_label')}</label>
                 <select id="hd-role" style="width: 100%; padding: 6px; border: 1px solid var(--line-strong); background: white;">
-                  <option value="CRO / Giám đốc Rủi ro">CRO / Giám đốc Rủi ro</option>
-                  <option value="Giám đốc Chi nhánh">Giám đốc Chi nhánh</option>
-                  <option value="Trưởng phòng Phê duyệt Tín dụng">Trưởng phòng Phê duyệt Tín dụng</option>
-                  <option value="Cán bộ Phê duyệt Chuyên môn">Cán bộ Phê duyệt Chuyên môn</option>
+                  <option value="CRO / Giám đốc Rủi ro">CRO / Chief Risk Officer</option>
+                  <option value="Giám đốc Chi nhánh">Branch Director</option>
+                  <option value="Trưởng phòng Phê duyệt Tín dụng">Head of Credit Approval</option>
+                  <option value="Cán bộ Phê duyệt Chuyên môn">Credit Approval Officer</option>
                 </select>
               </div>
               <div>
-                <label style="font-weight: 800; font-size: 10px; color: var(--muted); display: block;">CHI NHÁNH / ĐƠN VỊ</label>
+                <label style="font-weight: 800; font-size: 10px; color: var(--muted); display: block;">${t('branch_label')}</label>
                 <input type="text" id="hd-branch" value="HO_RISK_CENTER" style="width: 100%; padding: 6px; border: 1px solid var(--line-strong);">
               </div>
             </div>
 
             <div style="margin-bottom: 15px;">
-              <label style="font-weight: 800; font-size: 12px; display: block; margin-bottom: 8px;">LỰA CHỌN QUYẾT ĐỊNH PHÊ DUYỆT CỦA CON NGƯỜI:</label>
+              <label style="font-weight: 800; font-size: 12px; display: block; margin-bottom: 8px;">${t('human_choice_title')}</label>
               <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                 <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; background: var(--green-soft); padding: 8px 12px; border: 1px solid #a3e635; font-weight: 700;">
                   <input type="radio" name="hd-decision-choice" value="APPROVE_WITH_CONDITIONS" checked onclick="toggleOverrideJustification(false)">
-                  🟢 Phê duyệt theo AI (AGREE WITH AI)
+                  ${t('choice_agree')}
                 </label>
                 <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; background: var(--amber-soft); padding: 8px 12px; border: 1px solid #fde047; font-weight: 700;">
                   <input type="radio" name="hd-decision-choice" value="OVERRIDE_APPROVE" onclick="toggleOverrideJustification(true)">
-                  🟡 Phủ quyết AI - Chấp nhận vay (OVERRIDE AI)
+                  ${t('choice_override_approve')}
                 </label>
                 <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; background: var(--red-soft); padding: 8px 12px; border: 1px solid #fca5a5; font-weight: 700;">
                   <input type="radio" name="hd-decision-choice" value="REJECT_INSUFFICIENT_EVIDENCE" onclick="toggleOverrideJustification(true)">
-                  🔴 Phủ quyết AI - Từ chối cho vay (OVERRIDE / REJECT)
+                  ${t('choice_override_reject')}
                 </label>
               </div>
             </div>
 
             <div id="hd-override-panel" style="display: none; background: #fffbe6; padding: 14px; border: 1px solid #ffe58f; margin-bottom: 15px;">
-              <label style="font-weight: 800; font-size: 11px; color: var(--amber); display: block; margin-bottom: 4px;">HẠNG MỤC LÝ DO PHỦ QUYẾT AI (OVERRIDE CATEGORY)</label>
+              <label style="font-weight: 800; font-size: 11px; color: var(--amber); display: block; margin-bottom: 4px;">${t('override_category_label')}</label>
               <select id="hd-override-category" style="width: 100%; padding: 8px; border: 1px solid var(--line-strong); margin-bottom: 10px; background: white;">
                 <option value="ADDITIONAL_COLLATERAL_RECORDED">Bổ sung Tài sản bảo đảm / Bảo lãnh bên thứ 3 ngoài hệ thống</option>
                 <option value="BUSINESS_INTUITION_AND_TRACK_RECORD">Lịch sử quan hệ tín dụng tốt lâu năm & Tiềm năng ngành đặc thù</option>
@@ -254,29 +475,29 @@
                 <option value="VERIFIED_OFFLINE_DOCUMENTS">Đã xác minh bổ sung chứng từ bản cứng offline</option>
               </select>
 
-              <label style="font-weight: 800; font-size: 11px; color: var(--red); display: block; margin-bottom: 4px;">LỜI GIẢI TRÌNH CHI TIẾT (BẮT BUỘC NHẬP LÝ DO > 10 KÝ TỰ):</label>
-              <textarea id="hd-override-justification" rows="3" placeholder="Nhập lời giải trình căn cứ phê duyệt hoặc bác bỏ ý kiến AI tại đây..." style="width: 100%; padding: 8px; border: 1px solid var(--line-strong); font-family: inherit;"></textarea>
+              <label style="font-weight: 800; font-size: 11px; color: var(--red); display: block; margin-bottom: 4px;">${t('override_justification_label')}</label>
+              <textarea id="hd-override-justification" rows="3" placeholder="${t('override_placeholder')}" style="width: 100%; padding: 8px; border: 1px solid var(--line-strong); font-family: inherit;"></textarea>
             </div>
 
             <button id="hd-submit-btn" onclick="submitHumanDecision()" style="background: var(--navy); color: white; border: 0; padding: 12px 24px; font-weight: 800; cursor: pointer; font-size: 13px;">
-              🔏 KÝ SỐ & PHÁT HÀNH QUYẾT ĐỊNH PHÊ DUYỆT
+              ${t('sign_submit_btn')}
             </button>
             <div id="hd-status-msg" style="margin-top: 10px; font-weight: 700;"></div>
           </div>
         </section>
 
         <section class="section" id="approver-dashboard-section">
-          <h2>Báo Cáo Đánh Giá Chất Lượng Cán Bộ Phê Duyệt (Approver Quality Analytics)</h2>
+          <h2>${t('report_section_title')}</h2>
           <div class="panel" style="padding: 18px;">
             <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 15px;">
-              <label style="font-weight: 800; font-size: 12px;">CHỌN CÁN BỘ:</label>
-              <input type="text" id="dash-user-id" placeholder="Nhập User ID (vd: USR-8821 hoặc để trống xem tất cả)" style="padding: 7px; width: 320px; border: 1px solid var(--line-strong);">
+              <label style="font-weight: 800; font-size: 12px;">${t('select_officer_label')}</label>
+              <input type="text" id="dash-user-id" placeholder="${t('user_id_placeholder')}" style="padding: 7px; width: 320px; border: 1px solid var(--line-strong);">
               <button onclick="loadApproverReport()" style="background: var(--blue); color: white; border: 0; padding: 8px 16px; font-weight: 800; cursor: pointer;">
-                TẢI BÁO CÁO CHẤT LƯỢNG
+                ${t('load_report_btn')}
               </button>
             </div>
             <div id="dash-report-container">
-              <div style="color: var(--muted); font-size: 12px;">Nhấn "Tải báo cáo chất lượng" để tra cứu lịch sử phê duyệt và chỉ số chất lượng của cán bộ.</div>
+              <div style="color: var(--muted); font-size: 12px;">${t('report_help')}</div>
             </div>
           </div>
         </section>
@@ -310,7 +531,7 @@
       const justification = isOverride ? document.getElementById('hd-override-justification').value : null;
 
       if (isOverride && (!justification || justification.trim().length < 10)) {
-        alert('Lời giải trình (override_justification) là BẮT BUỘC và phải có ít nhất 10 ký tự khi phủ quyết AI.');
+        alert(currentLang()==='en' ? 'Override justification is MANDATORY and must be at least 10 characters.' : 'Lời giải trình (override_justification) là BẮT BUỘC và phải có ít nhất 10 ký tự khi phủ quyết AI.');
         return;
       }
 
@@ -330,7 +551,7 @@
 
       const statusMsg = document.getElementById('hd-status-msg');
       statusMsg.style.color = 'var(--blue)';
-      statusMsg.textContent = 'Đang ký số và ghi nhận vào cơ sở dữ liệu...';
+      statusMsg.textContent = currentLang()==='en' ? 'Signing seal and recording into database...' : 'Đang ký số và ghi nhận vào cơ sở dữ liệu...';
 
       try {
         const res = await fetch('/api/human-decision', {
@@ -341,11 +562,11 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || data.error);
         statusMsg.style.color = 'var(--green)';
-        statusMsg.innerHTML = `✅ ĐÃ KÝ DUYỆT THÀNH CÔNG! Mã băm chữ ký số: <code style="background:#eaf7f0; padding:3px 6px;">${data.digital_signature_hash}</code> (Decision ID: ${data.decision_id})`;
+        statusMsg.innerHTML = currentLang()==='en' ? `✅ SIGNED SUCCESSFULLY! Digital Seal Hash: <code style="background:#eaf7f0; padding:3px 6px;">${data.digital_signature_hash}</code> (Decision ID: ${data.decision_id})` : `✅ ĐÃ KÝ DUYỆT THÀNH CÔNG! Mã băm chữ ký số: <code style="background:#eaf7f0; padding:3px 6px;">${data.digital_signature_hash}</code> (Decision ID: ${data.decision_id})`;
         loadApproverReport();
       } catch (err) {
         statusMsg.style.color = 'var(--red)';
-        statusMsg.textContent = `❌ LỖI KÝ DUYỆT: ${err.message}`;
+        statusMsg.textContent = `❌ ERROR: ${err.message}`;
       }
     }
 
@@ -360,18 +581,18 @@
         const r = await res.json();
         if (!res.ok) throw new Error(r.message || r.error);
         if (r.total_decisions === 0) {
-          container.innerHTML = `<div style="color:var(--muted)">Chưa có dữ liệu quyết định phê duyệt nào của cán bộ.</div>`;
+          container.innerHTML = `<div style="color:var(--muted)">${t('no_decisions')}</div>`;
           return;
         }
         const html = `
           <div class="summary" style="margin-bottom: 15px;">
-            <div class="metric"><small>Cán bộ</small><b>${esc(r.user_id)}</b></div>
-            <div class="metric"><small>Tổng hồ sơ đã duyệt</small><b>${r.total_decisions} hồ sơ</b></div>
-            <div class="metric"><small>Tỷ lệ Override AI</small><b style="color: ${r.override_rate_pct > 20 ? 'var(--red)' : 'var(--green)'}">${r.override_rate_pct}% (${r.override_ai_count}/${r.total_decisions})</b></div>
+            <div class="metric"><small>${t('officer')}</small><b>${esc(r.user_id)}</b></div>
+            <div class="metric"><small>${t('total_decisions')}</small><b>${r.total_decisions}</b></div>
+            <div class="metric"><small>${t('override_rate')}</small><b style="color: ${r.override_rate_pct > 20 ? 'var(--red)' : 'var(--green)'}">${r.override_rate_pct}% (${r.override_ai_count}/${r.total_decisions})</b></div>
           </div>
-          <div style="margin-bottom: 10px; font-weight: 700;">Chỉ số tuân thủ phê duyệt (Quality Index): <span class="badge ${r.quality_index === 'HIGH_OVERRIDE_RISK' ? 'fail' : 'pass'}">${r.quality_index}</span></div>
+          <div style="margin-bottom: 10px; font-weight: 700;">${t('compliance_index')} <span class="badge ${r.quality_index === 'HIGH_OVERRIDE_RISK' ? 'fail' : 'pass'}">${r.quality_index}</span></div>
           <table>
-            <thead><tr><th>Thời gian</th><th>Case ID</th><th>Người duyệt</th><th>Ý kiến AI</th><th>Quyết định Con người</th><th>Loại</th><th>Lời giải trình Override</th><th>Mã băm chữ ký số</th></tr></thead>
+            <thead><tr><th>${t('col_time')}</th><th>${t('col_case')}</th><th>${t('col_approver')}</th><th>${t('col_ai')}</th><th>${t('col_human')}</th><th>${t('col_type')}</th><th>${t('col_justification')}</th><th>${t('col_hash')}</th></tr></thead>
             <tbody>
               ${r.decisions.map(d => `
                 <tr>
@@ -381,7 +602,7 @@
                   <td><span class="badge warn">${esc(d.ai_decision)}</span></td>
                   <td><span class="badge ${d.human_decision.includes('APPROVE') ? 'pass' : 'fail'}">${esc(d.human_decision)}</span></td>
                   <td><span class="badge ${d.decision_type === 'OVERRIDE_AI' ? 'fail' : 'pass'}">${esc(d.decision_type)}</span></td>
-                  <td>${d.override_justification ? `<small style="color:var(--amber)"><b>[${esc(d.override_reason_category || '')}]</b> ${esc(d.override_justification)}</small>` : '<span style="color:var(--muted)">Đồng ý với AI</span>'}</td>
+                  <td>${d.override_justification ? `<small style="color:var(--amber)"><b>[${esc(d.override_reason_category || '')}]</b> ${esc(d.override_justification)}</small>` : `<span style="color:var(--muted)">${t('agree_with_ai')}</span>`}</td>
                   <td><code style="font-size:9px;">${esc(d.digital_signature_hash.slice(0, 16))}...</code></td>
                 </tr>
               `).join('')}
@@ -390,11 +611,56 @@
         `;
         container.innerHTML = html;
       } catch (err) {
-        container.innerHTML = `<div style="color:var(--red)">Lỗi nạp báo cáo: ${esc(err.message)}</div>`;
+        container.innerHTML = `<div style="color:var(--red)">Lỗi / Error: ${esc(err.message)}</div>`;
       }
     }
-    $('run').onclick=async()=>{if(!selected)return;$('run').disabled=true;$('content').innerHTML=workflowCanvas({status:'RUNNING',active_nodes:[],events:[]});try{const response=await fetch('/api/run-async/'+selected,{method:'POST'});const started=await response.json();if(!response.ok)throw new Error(started.message||started.error);while(true){await new Promise(resolve=>setTimeout(resolve,100));const run=await fetch('/api/run-status/'+started.run_id).then(r=>r.json());if(run.status==='COMPLETED'){render(run.result);break}if(run.status==='FAILED')throw new Error(run.error);renderProgress(run)}}catch(error){$('content').innerHTML=`<div class="empty"><div><h2>Run failed</h2><p>${esc(error.message)}</p></div></div>`}finally{$('run').disabled=false}};
-    loadScenarios();
+    async function updateEngineChip() {
+      try {
+        const res = await fetch('/api/engine-info');
+        const info = await res.json();
+        const chip = $('engine-chip');
+        if (chip) {
+          if (info.cluster_alive) {
+            chip.textContent = '🚀 TEMPORAL CLUSTER (127.0.0.1:7233)';
+            chip.style.background = '#16a34a';
+          } else {
+            chip.textContent = '🔄 TEMPORAL SDK (IN-MEMORY)';
+            chip.style.background = '#2563eb';
+          }
+        }
+      } catch (e) {}
+    }
+
+    $('run').onclick=async()=>{
+      if(!selected)return;
+      $('run').disabled=true;
+      const engineVal = $('engine-select')?.value || 'auto';
+      const engineQuery = engineVal !== 'auto' ? `?engine=${encodeURIComponent(engineVal)}` : '';
+      $('content').innerHTML=workflowCanvas({status:'RUNNING',active_nodes:[],events:[]});
+      try{
+        const response=await fetch('/api/run-async/'+selected+engineQuery,{method:'POST'});
+        const started=await response.json();
+        if(!response.ok)throw new Error(started.message||started.error);
+        while(true){
+          await new Promise(resolve=>setTimeout(resolve,100));
+          const run=await fetch('/api/run-status/'+started.run_id).then(r=>r.json());
+          if(run.status==='COMPLETED'){
+            render(run.result);
+            updateEngineChip();
+            break;
+          }
+          if(run.status==='FAILED')throw new Error(run.error);
+          renderProgress(run);
+        }
+      }catch(error){
+        $('content').innerHTML=`<div class="empty"><div><h2>Run failed</h2><p>${esc(error.message)}</p></div></div>`;
+      }finally{
+        $('run').disabled=false;
+      }
+    };
+
+    setLanguage(currentLang());
+    updateEngineChip();
   </script>
 </body>
 </html>

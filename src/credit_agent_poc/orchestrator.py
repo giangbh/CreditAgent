@@ -33,8 +33,15 @@ class RunResult:
     duration_ms: int
     state: CreditState
     checkpoints: list[dict[str, Any]]
+    engine_type: str = "temporal"
 
     def to_dict(self) -> dict[str, Any]:
+        engine_label = "Temporal.io Workflow Engine (In-Memory Simulation)"
+        if self.engine_type == "temporal-cluster":
+            engine_label = "Native Temporal Server Cluster (127.0.0.1:7233)"
+        elif self.engine_type == "legacy":
+            engine_label = "Legacy Python Orchestrator (Mock/In-Process)"
+
         return {
             "scenario_id": self.scenario_id,
             "scenario_name": self.scenario_name,
@@ -42,6 +49,13 @@ class RunResult:
             "actual_outcome": self.actual_outcome,
             "outcome_matches": self.outcome_matches,
             "duration_ms": self.duration_ms,
+            "engine_info": {
+                "engine_type": self.engine_type,
+                "engine_label": engine_label,
+                "is_temporal": self.engine_type in ("temporal", "temporal-cluster"),
+                "is_cluster": self.engine_type == "temporal-cluster",
+                "temporal_ui_url": "http://localhost:8233" if self.engine_type == "temporal-cluster" else None,
+            },
             "pipeline": PIPELINE,
             "checkpoints": self.checkpoints,
             "node_outcomes": build_outcome_map(self.state),
@@ -96,6 +110,7 @@ class CreditOrchestrator:
                 duration_ms=duration_ms,
                 state=state,
                 checkpoints=checkpoints,
+                engine_type=self.engine_type,
             )
 
         state = CreditState(
@@ -136,6 +151,7 @@ class CreditOrchestrator:
             duration_ms=duration_ms,
             state=state,
             checkpoints=checkpoints,
+            engine_type="legacy",
         )
 
     def run_all(self) -> list[RunResult]:

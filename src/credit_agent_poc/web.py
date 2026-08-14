@@ -13,6 +13,15 @@ from .orchestrator import CreditOrchestrator
 from .scenarios import SCENARIOS, scenario_catalog
 
 
+def is_temporal_cluster_alive(host: str = "127.0.0.1", port: int = 7233) -> bool:
+    import socket
+    try:
+        with socket.create_connection((host, port), timeout=0.2):
+            return True
+    except Exception:
+        return False
+
+
 class POCRequestHandler(BaseHTTPRequestHandler):
     db_path: str = "credit_agent.db"
     orchestrator: Optional[CreditOrchestrator] = None
@@ -20,9 +29,11 @@ class POCRequestHandler(BaseHTTPRequestHandler):
     runs_lock = threading.Lock()
 
     @classmethod
-    def get_orchestrator(cls, step_delay_ms: int = 0) -> CreditOrchestrator:
+    def get_orchestrator(cls, step_delay_ms: int = 0, engine: Optional[str] = None) -> CreditOrchestrator:
         repo = StateRepository(db_path=cls.db_path)
-        return CreditOrchestrator(db_repository=repo, step_delay_ms=step_delay_ms)
+        if not engine:
+            engine = "temporal-cluster" if is_temporal_cluster_alive() else "temporal"
+        return CreditOrchestrator(db_repository=repo, engine=engine, step_delay_ms=step_delay_ms)
 
     def log_message(self, format: str, *args: object) -> None:
         return
@@ -36,12 +47,32 @@ class POCRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self) -> None:
-        path = urlparse(self.path).path
+        parsed_url = urlparse(self.path)
+        path = parsed_url.path
+        query = parse_qs(parsed_url.query)
+
         if path == "/api/scenarios":
             self._json(scenario_catalog())
             return
+        if path == "/api/engine-info":
+            cluster_alive = is_temporal_cluster_alive()
+            active_engine = "temporal-cluster" if cluster_alive else "temporal"
+            self._json({
+                "cluster_alive": cluster_alive,
+                "active_engine": active_engine,
+                "engine_label": "Native Temporal Server Cluster (127.0.0.1:7233)" if cluster_alive else "Temporal.io Workflow Engine (In-Memory Simulation)",
+                "temporal_ui_url": "http://localhost:8233" if cluster_alive else None,
+            })
+            return
         if path == "/api/health":
-            self._json({"status": "ok", "service": "credit-agent-poc", "db": self.db_path})
+            cluster_alive = is_temporal_cluster_alive()
+            self._json({
+                "status": "ok",
+                "service": "credit-agent-poc",
+                "db": self.db_path,
+                "temporal_cluster_alive": cluster_alive,
+                "active_engine": "temporal-cluster" if cluster_alive else "temporal",
+            })
             return
         status_prefix = "/api/run-status/"
         if path.startswith(status_prefix):
@@ -105,11 +136,33 @@ class POCRequestHandler(BaseHTTPRequestHandler):
             return
 
         async_prefix = "/api/run-async/"
+        parsed_url = urlparse(self.path)
+        path = parsed_url.path
+        query = parse_qs(parsed_url.query)
+        engine_param = query.get("engine", [None])[0]
+
         if path.startswith(async_prefix):
             scenario_id = path[len(async_prefix) :]
             if scenario_id not in SCENARIOS:
                 self._json({"error": "unknown_scenario", "scenario_id": scenario_id}, HTTPStatus.NOT_FOUND)
                 return
+            
+            cluster_alive = is_temporal_cluster_alive()
+            if not engine_param or engine_param == "auto":
+                effective_engine = "temporal-cluster" if cluster_alive else "temporal"
+            else:
+                effective_engine = engine_param
+
+            if effective_engine == "temporal-cluster":
+                engine_label = "Native Temporal Server Cluster (127.0.0.1:7233)"
+                temporal_ui_url = "http://localhost:8233"
+            elif effective_engine == "legacy":
+                engine_label = "Legacy Python Orchestrator (Mock/In-Process)"
+                temporal_ui_url = None
+            else:
+                engine_label = "Temporal.io Workflow Engine (In-Memory Simulation)"
+                temporal_ui_url = None
+
             run_id = str(uuid.uuid4())
             with self.runs_lock:
                 self.runs[run_id] = {
@@ -118,12 +171,19 @@ class POCRequestHandler(BaseHTTPRequestHandler):
                     "status": "RUNNING",
                     "active_nodes": [],
                     "events": [],
+                    "engine_info": {
+                        "engine_type": effective_engine,
+                        "engine_label": engine_label,
+                        "is_temporal": effective_engine in ("temporal", "temporal-cluster"),
+                        "is_cluster": effective_engine == "temporal-cluster",
+                        "temporal_ui_url": temporal_ui_url,
+                    },
                     "result": None,
                     "error": None,
                 }
             threading.Thread(
                 target=self._run_async,
-                args=(run_id, scenario_id),
+                args=(run_id, scenario_id, effective_engine),
                 name=f"poc-run-{run_id[:8]}",
                 daemon=True,
             ).start()
@@ -138,14 +198,14 @@ class POCRequestHandler(BaseHTTPRequestHandler):
             self._json({"error": "unknown_scenario", "scenario_id": scenario_id}, HTTPStatus.NOT_FOUND)
             return
         try:
-            orchestrator = self.get_orchestrator()
+            orchestrator = self.get_orchestrator(engine=engine_param)
             result = orchestrator.run(scenario_id)
             self._json(result.to_dict())
         except Exception as exc:
             self._json({"error": "run_failed", "message": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @classmethod
-    def _run_async(cls, run_id: str, scenario_id: str) -> None:
+    def _run_async(cls, run_id: str, scenario_id: str, engine: Optional[str] = None) -> None:
         def observe(event: dict) -> None:
             with cls.runs_lock:
                 run = cls.runs[run_id]
@@ -157,7 +217,7 @@ class POCRequestHandler(BaseHTTPRequestHandler):
                     run["active_nodes"].remove(node_id)
 
         try:
-            orchestrator = cls.get_orchestrator(step_delay_ms=300)
+            orchestrator = cls.get_orchestrator(step_delay_ms=300, engine=engine)
             result = orchestrator.run(scenario_id, observer=observe)
             with cls.runs_lock:
                 cls.runs[run_id]["status"] = "COMPLETED"
