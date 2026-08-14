@@ -189,9 +189,209 @@
         <section class="section"><h2>Evidence reports</h2><div class="grid">${reports}</div></section>
         <section class="section"><h2>Debate records</h2><div class="grid"><div class="data-card"><h3>Credit debate</h3><pre>${pretty(s.credit_debate)}</pre></div><div class="data-card"><h3>Risk committee</h3><pre>${pretty(s.risk_debate)}</pre></div></div></section>
         <section class="section"><h2>Final advisory output</h2><div class="grid"><div class="data-card"><h3>CoApprovalOpinion · DRAFT</h3><pre>${pretty(opinion)}</pre></div><div class="data-card"><h3>Approval Control</h3><pre>${pretty(control)}</pre></div></div></section>
+        <section class="section" id="human-decision-section">
+          <h2>Luồng Quyết Định Phê Duyệt Của Con Người (Human Final Decision Panel)</h2>
+          <div class="panel" style="padding: 18px; border-left: 4px solid var(--blue);">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px;">
+              <div>
+                <label style="font-weight: 800; font-size: 11px; color: var(--muted); display: block;">MÃ KHOẢN VAY / CASE ID</label>
+                <input type="text" id="hd-case-id" value="${esc(data.state.case_id)}" readonly style="width: 100%; padding: 8px; border: 1px solid var(--line); background: #f8fafc; font-weight: 700;">
+              </div>
+              <div>
+                <label style="font-weight: 800; font-size: 11px; color: var(--muted); display: block;">Ý KIẾN ĐỀ XUẤT CỦA AI (A13 DRAFT OPINION)</label>
+                <input type="text" id="hd-ai-decision" value="${esc(data.actual_outcome)}" readonly style="width: 100%; padding: 8px; border: 1px solid var(--line); background: #f8fafc; font-weight: 700; color: var(--blue);">
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 15px; background: #f1f5f9; padding: 12px; border: 1px solid var(--line);">
+              <div>
+                <label style="font-weight: 800; font-size: 10px; color: var(--muted); display: block;">USER ID CÁN BỘ</label>
+                <input type="text" id="hd-user-id" value="USR-8821" style="width: 100%; padding: 6px; border: 1px solid var(--line-strong);">
+              </div>
+              <div>
+                <label style="font-weight: 800; font-size: 10px; color: var(--muted); display: block;">HỌ VÀ TÊN CÁN BỘ</label>
+                <input type="text" id="hd-fullname" value="Nguyễn Văn A" style="width: 100%; padding: 6px; border: 1px solid var(--line-strong);">
+              </div>
+              <div>
+                <label style="font-weight: 800; font-size: 10px; color: var(--muted); display: block;">CHỨC DANH / VAI TRÒ</label>
+                <select id="hd-role" style="width: 100%; padding: 6px; border: 1px solid var(--line-strong); background: white;">
+                  <option value="CRO / Giám đốc Rủi ro">CRO / Giám đốc Rủi ro</option>
+                  <option value="Giám đốc Chi nhánh">Giám đốc Chi nhánh</option>
+                  <option value="Trưởng phòng Phê duyệt Tín dụng">Trưởng phòng Phê duyệt Tín dụng</option>
+                  <option value="Cán bộ Phê duyệt Chuyên môn">Cán bộ Phê duyệt Chuyên môn</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-weight: 800; font-size: 10px; color: var(--muted); display: block;">CHI NHÁNH / ĐƠN VỊ</label>
+                <input type="text" id="hd-branch" value="HO_RISK_CENTER" style="width: 100%; padding: 6px; border: 1px solid var(--line-strong);">
+              </div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+              <label style="font-weight: 800; font-size: 12px; display: block; margin-bottom: 8px;">LỰA CHỌN QUYẾT ĐỊNH PHÊ DUYỆT CỦA CON NGƯỜI:</label>
+              <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; background: var(--green-soft); padding: 8px 12px; border: 1px solid #a3e635; font-weight: 700;">
+                  <input type="radio" name="hd-decision-choice" value="APPROVE_WITH_CONDITIONS" checked onclick="toggleOverrideJustification(false)">
+                  🟢 Phê duyệt theo AI (AGREE WITH AI)
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; background: var(--amber-soft); padding: 8px 12px; border: 1px solid #fde047; font-weight: 700;">
+                  <input type="radio" name="hd-decision-choice" value="OVERRIDE_APPROVE" onclick="toggleOverrideJustification(true)">
+                  🟡 Phủ quyết AI - Chấp nhận vay (OVERRIDE AI)
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; background: var(--red-soft); padding: 8px 12px; border: 1px solid #fca5a5; font-weight: 700;">
+                  <input type="radio" name="hd-decision-choice" value="REJECT_INSUFFICIENT_EVIDENCE" onclick="toggleOverrideJustification(true)">
+                  🔴 Phủ quyết AI - Từ chối cho vay (OVERRIDE / REJECT)
+                </label>
+              </div>
+            </div>
+
+            <div id="hd-override-panel" style="display: none; background: #fffbe6; padding: 14px; border: 1px solid #ffe58f; margin-bottom: 15px;">
+              <label style="font-weight: 800; font-size: 11px; color: var(--amber); display: block; margin-bottom: 4px;">HẠNG MỤC LÝ DO PHỦ QUYẾT AI (OVERRIDE CATEGORY)</label>
+              <select id="hd-override-category" style="width: 100%; padding: 8px; border: 1px solid var(--line-strong); margin-bottom: 10px; background: white;">
+                <option value="ADDITIONAL_COLLATERAL_RECORDED">Bổ sung Tài sản bảo đảm / Bảo lãnh bên thứ 3 ngoài hệ thống</option>
+                <option value="BUSINESS_INTUITION_AND_TRACK_RECORD">Lịch sử quan hệ tín dụng tốt lâu năm & Tiềm năng ngành đặc thù</option>
+                <option value="POLICY_EXCEPTION_AUTHORIZED">Ngoại lệ chính sách được cấp thẩm quyền xem xét đặc cách</option>
+                <option value="VERIFIED_OFFLINE_DOCUMENTS">Đã xác minh bổ sung chứng từ bản cứng offline</option>
+              </select>
+
+              <label style="font-weight: 800; font-size: 11px; color: var(--red); display: block; margin-bottom: 4px;">LỜI GIẢI TRÌNH CHI TIẾT (BẮT BUỘC NHẬP LÝ DO > 10 KÝ TỰ):</label>
+              <textarea id="hd-override-justification" rows="3" placeholder="Nhập lời giải trình căn cứ phê duyệt hoặc bác bỏ ý kiến AI tại đây..." style="width: 100%; padding: 8px; border: 1px solid var(--line-strong); font-family: inherit;"></textarea>
+            </div>
+
+            <button id="hd-submit-btn" onclick="submitHumanDecision()" style="background: var(--navy); color: white; border: 0; padding: 12px 24px; font-weight: 800; cursor: pointer; font-size: 13px;">
+              🔏 KÝ SỐ & PHÁT HÀNH QUYẾT ĐỊNH PHÊ DUYỆT
+            </button>
+            <div id="hd-status-msg" style="margin-top: 10px; font-weight: 700;"></div>
+          </div>
+        </section>
+
+        <section class="section" id="approver-dashboard-section">
+          <h2>Báo Cáo Đánh Giá Chất Lượng Cán Bộ Phê Duyệt (Approver Quality Analytics)</h2>
+          <div class="panel" style="padding: 18px;">
+            <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 15px;">
+              <label style="font-weight: 800; font-size: 12px;">CHỌN CÁN BỘ:</label>
+              <input type="text" id="dash-user-id" placeholder="Nhập User ID (vd: USR-8821 hoặc để trống xem tất cả)" style="padding: 7px; width: 320px; border: 1px solid var(--line-strong);">
+              <button onclick="loadApproverReport()" style="background: var(--blue); color: white; border: 0; padding: 8px 16px; font-weight: 800; cursor: pointer;">
+                TẢI BÁO CÁO CHẤT LƯỢNG
+              </button>
+            </div>
+            <div id="dash-report-container">
+              <div style="color: var(--muted); font-size: 12px;">Nhấn "Tải báo cáo chất lượng" để tra cứu lịch sử phê duyệt và chỉ số chất lượng của cán bộ.</div>
+            </div>
+          </div>
+        </section>
+
         <section class="section"><h2>Simulated backend calls · ${s.tool_history.length}</h2><table><thead><tr><th>Agent</th><th>Tool</th><th>Status</th></tr></thead><tbody>${tools}</tbody></table></section>
         <details class="full-state"><summary>Full State, checkpoints and audit</summary><pre class="raw-json">${pretty(data)}</pre></details>`;
       showCheckpoint(0);
+      loadApproverReport();
+    }
+
+    function toggleOverrideJustification(show) {
+      const panel = document.getElementById('hd-override-panel');
+      if (panel) panel.style.display = show ? 'block' : 'none';
+    }
+
+    async function submitHumanDecision() {
+      const caseId = document.getElementById('hd-case-id').value;
+      const aiDecision = document.getElementById('hd-ai-decision').value;
+      const userId = document.getElementById('hd-user-id').value;
+      const fullname = document.getElementById('hd-fullname').value;
+      const role = document.getElementById('hd-role').value;
+      const branch = document.getElementById('hd-branch').value;
+      
+      const choices = document.getElementsByName('hd-decision-choice');
+      let selectedChoice = 'APPROVE_WITH_CONDITIONS';
+      for (const c of choices) { if (c.checked) selectedChoice = c.value; }
+
+      const isOverride = selectedChoice !== aiDecision;
+      const decisionType = isOverride ? 'OVERRIDE_AI' : 'AGREE_WITH_AI';
+      const category = isOverride ? document.getElementById('hd-override-category').value : null;
+      const justification = isOverride ? document.getElementById('hd-override-justification').value : null;
+
+      if (isOverride && (!justification || justification.trim().length < 10)) {
+        alert('Lời giải trình (override_justification) là BẮT BUỘC và phải có ít nhất 10 ký tự khi phủ quyết AI.');
+        return;
+      }
+
+      const payload = {
+        case_id: caseId,
+        user_id: userId,
+        username: userId.toLowerCase(),
+        full_name: fullname,
+        role: role,
+        branch_id: branch,
+        ai_decision: aiDecision,
+        human_decision: selectedChoice,
+        decision_type: decisionType,
+        override_reason_category: category,
+        override_justification: justification
+      };
+
+      const statusMsg = document.getElementById('hd-status-msg');
+      statusMsg.style.color = 'var(--blue)';
+      statusMsg.textContent = 'Đang ký số và ghi nhận vào cơ sở dữ liệu...';
+
+      try {
+        const res = await fetch('/api/human-decision', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || data.error);
+        statusMsg.style.color = 'var(--green)';
+        statusMsg.innerHTML = `✅ ĐÃ KÝ DUYỆT THÀNH CÔNG! Mã băm chữ ký số: <code style="background:#eaf7f0; padding:3px 6px;">${data.digital_signature_hash}</code> (Decision ID: ${data.decision_id})`;
+        loadApproverReport();
+      } catch (err) {
+        statusMsg.style.color = 'var(--red)';
+        statusMsg.textContent = `❌ LỖI KÝ DUYỆT: ${err.message}`;
+      }
+    }
+
+    async function loadApproverReport() {
+      const input = document.getElementById('dash-user-id');
+      const userId = input ? input.value.trim() : '';
+      const url = userId ? `/api/approver-quality-report?user_id=${encodeURIComponent(userId)}` : '/api/approver-quality-report';
+      const container = document.getElementById('dash-report-container');
+      if (!container) return;
+      try {
+        const res = await fetch(url);
+        const r = await res.json();
+        if (!res.ok) throw new Error(r.message || r.error);
+        if (r.total_decisions === 0) {
+          container.innerHTML = `<div style="color:var(--muted)">Chưa có dữ liệu quyết định phê duyệt nào của cán bộ.</div>`;
+          return;
+        }
+        const html = `
+          <div class="summary" style="margin-bottom: 15px;">
+            <div class="metric"><small>Cán bộ</small><b>${esc(r.user_id)}</b></div>
+            <div class="metric"><small>Tổng hồ sơ đã duyệt</small><b>${r.total_decisions} hồ sơ</b></div>
+            <div class="metric"><small>Tỷ lệ Override AI</small><b style="color: ${r.override_rate_pct > 20 ? 'var(--red)' : 'var(--green)'}">${r.override_rate_pct}% (${r.override_ai_count}/${r.total_decisions})</b></div>
+          </div>
+          <div style="margin-bottom: 10px; font-weight: 700;">Chỉ số tuân thủ phê duyệt (Quality Index): <span class="badge ${r.quality_index === 'HIGH_OVERRIDE_RISK' ? 'fail' : 'pass'}">${r.quality_index}</span></div>
+          <table>
+            <thead><tr><th>Thời gian</th><th>Case ID</th><th>Người duyệt</th><th>Ý kiến AI</th><th>Quyết định Con người</th><th>Loại</th><th>Lời giải trình Override</th><th>Mã băm chữ ký số</th></tr></thead>
+            <tbody>
+              ${r.decisions.map(d => `
+                <tr>
+                  <td>${esc(d.created_at)}</td>
+                  <td><b>${esc(d.case_id)}</b></td>
+                  <td>${esc(d.full_name)} (${esc(d.user_id)})</td>
+                  <td><span class="badge warn">${esc(d.ai_decision)}</span></td>
+                  <td><span class="badge ${d.human_decision.includes('APPROVE') ? 'pass' : 'fail'}">${esc(d.human_decision)}</span></td>
+                  <td><span class="badge ${d.decision_type === 'OVERRIDE_AI' ? 'fail' : 'pass'}">${esc(d.decision_type)}</span></td>
+                  <td>${d.override_justification ? `<small style="color:var(--amber)"><b>[${esc(d.override_reason_category || '')}]</b> ${esc(d.override_justification)}</small>` : '<span style="color:var(--muted)">Đồng ý với AI</span>'}</td>
+                  <td><code style="font-size:9px;">${esc(d.digital_signature_hash.slice(0, 16))}...</code></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+        container.innerHTML = html;
+      } catch (err) {
+        container.innerHTML = `<div style="color:var(--red)">Lỗi nạp báo cáo: ${esc(err.message)}</div>`;
+      }
     }
     $('run').onclick=async()=>{if(!selected)return;$('run').disabled=true;$('content').innerHTML=workflowCanvas({status:'RUNNING',active_nodes:[],events:[]});try{const response=await fetch('/api/run-async/'+selected,{method:'POST'});const started=await response.json();if(!response.ok)throw new Error(started.message||started.error);while(true){await new Promise(resolve=>setTimeout(resolve,100));const run=await fetch('/api/run-status/'+started.run_id).then(r=>r.json());if(run.status==='COMPLETED'){render(run.result);break}if(run.status==='FAILED')throw new Error(run.error);renderProgress(run)}}catch(error){$('content').innerHTML=`<div class="empty"><div><h2>Run failed</h2><p>${esc(error.message)}</p></div></div>`}finally{$('run').disabled=false}};
     loadScenarios();

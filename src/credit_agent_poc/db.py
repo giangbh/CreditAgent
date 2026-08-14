@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
+import uuid
 from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Generator, List, Optional, Union
 
-from .models import AuditEvent, CreditState
+from .models import AuditEvent, CreditState, utc_now
 
 
 class StateRepository:
@@ -79,6 +81,30 @@ class StateRepository:
                     node_id TEXT NOT NULL,
                     details TEXT NOT NULL,
                     timestamp TEXT NOT NULL
+                );
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS human_decisions (
+                    decision_id TEXT PRIMARY KEY,
+                    case_id TEXT NOT NULL,
+                    run_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    username TEXT NOT NULL,
+                    full_name TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    branch_id TEXT NOT NULL,
+                    ai_decision TEXT NOT NULL,
+                    human_decision TEXT NOT NULL,
+                    decision_type TEXT NOT NULL,
+                    override_reason_category TEXT,
+                    override_justification TEXT,
+                    approved_amount INTEGER,
+                    approved_tenor_months INTEGER,
+                    approved_interest_rate REAL,
+                    digital_signature_hash TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
                 """
             )
@@ -183,3 +209,142 @@ class StateRepository:
                     event.timestamp,
                 ),
             )
+
+    def record_human_decision(self, data: dict[str, Any]) -> dict[str, Any]:
+        decision_id = data.get("decision_id") or f"DECISION-{uuid.uuid4().hex[:8]}"
+        case_id = data["case_id"]
+        run_id = data.get("run_id", "")
+        user_id = data.get("user_id", "USR-8821")
+        username = data.get("username", "nguyenvana")
+        full_name = data.get("full_name", "Nguyễn Văn A")
+        role = data.get("role", "CRO / Giám đốc Tín dụng")
+        branch_id = data.get("branch_id", "HO_RISK_CENTER")
+        ai_decision = data.get("ai_decision", "UNKNOWN")
+        human_decision = data.get("human_decision", "APPROVED")
+        decision_type = data.get("decision_type")
+        if not decision_type:
+            decision_type = "AGREE_WITH_AI" if human_decision == ai_decision else "OVERRIDE_AI"
+
+        override_reason_category = data.get("override_reason_category")
+        override_justification = data.get("override_justification")
+
+        if decision_type == "OVERRIDE_AI" and (not override_justification or len(override_justification.strip()) < 10):
+            raise ValueError("Lời giải trình (override_justification) là bắt buộc và phải có ít nhất 10 ký tự khi phủ quyết AI.")
+
+        approved_amount = data.get("approved_amount")
+        approved_tenor_months = data.get("approved_tenor_months")
+        approved_interest_rate = data.get("approved_interest_rate")
+
+        created_at = data.get("created_at") or utc_now()
+        sig_payload = f"{decision_id}|{case_id}|{user_id}|{human_decision}|{decision_type}|{created_at}"
+        digital_signature_hash = hashlib.sha256(sig_payload.encode()).hexdigest()
+
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO human_decisions (
+                    decision_id, case_id, run_id, user_id, username, full_name, role, branch_id,
+                    ai_decision, human_decision, decision_type, override_reason_category,
+                    override_justification, approved_amount, approved_tenor_months, approved_interest_rate,
+                    digital_signature_hash, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(decision_id) DO UPDATE SET
+                    human_decision = excluded.human_decision,
+                    decision_type = excluded.decision_type,
+                    override_reason_category = excluded.override_reason_category,
+                    override_justification = excluded.override_justification,
+                    approved_amount = excluded.approved_amount,
+                    approved_tenor_months = excluded.approved_tenor_months,
+                    approved_interest_rate = excluded.approved_interest_rate,
+                    digital_signature_hash = excluded.digital_signature_hash;
+                """,
+                (
+                    decision_id,
+                    case_id,
+                    run_id,
+                    user_id,
+                    username,
+                    full_name,
+                    role,
+                    branch_id,
+                    ai_decision,
+                    human_decision,
+                    decision_type,
+                    override_reason_category,
+                    override_justification,
+                    approved_amount,
+                    approved_tenor_months,
+                    approved_interest_rate,
+                    digital_signature_hash,
+                    created_at,
+                ),
+            )
+        return {
+            "decision_id": decision_id,
+            "case_id": case_id,
+            "user_id": user_id,
+            "username": username,
+            "full_name": full_name,
+            "role": role,
+            "decision_type": decision_type,
+            "human_decision": human_decision,
+            "digital_signature_hash": digital_signature_hash,
+            "created_at": created_at,
+            "status": "SUCCESS",
+        }
+
+    def get_human_decisions_by_case(self, case_id: str) -> List[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM human_decisions WHERE case_id = ? ORDER BY created_at DESC", (case_id,)
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_human_decisions_by_user(self, user_id: str) -> List[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM human_decisions WHERE user_id = ? ORDER BY created_at DESC", (user_id,)
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def generate_approver_quality_report(self, user_id: Optional[str] = None) -> dict[str, Any]:
+        with self._connect() as conn:
+            if user_id:
+                rows = conn.execute("SELECT * FROM human_decisions WHERE user_id = ?", (user_id,)).fetchall()
+            else:
+                rows = conn.execute("SELECT * FROM human_decisions").fetchall()
+
+            records = [dict(row) for row in rows]
+            total_count = len(records)
+            if total_count == 0:
+                return {
+                    "total_decisions": 0,
+                    "agreed_with_ai_count": 0,
+                    "override_ai_count": 0,
+                    "agreement_rate_pct": 0.0,
+                    "override_rate_pct": 0.0,
+                    "quality_index": "NO_DATA",
+                    "decisions": [],
+                }
+
+            override_count = sum(1 for r in records if r["decision_type"] == "OVERRIDE_AI")
+            agree_count = total_count - override_count
+            override_rate = round((override_count / total_count) * 100, 2)
+            agree_rate = round((agree_count / total_count) * 100, 2)
+
+            quality_index = "HIGH_COMPLIANCE"
+            if override_rate > 35.0:
+                quality_index = "HIGH_OVERRIDE_RISK"
+            elif override_rate > 15.0:
+                quality_index = "BALANCED_AUDITED"
+
+            return {
+                "user_id": user_id or "ALL_APPROVERS",
+                "total_decisions": total_count,
+                "agreed_with_ai_count": agree_count,
+                "override_ai_count": override_count,
+                "agreement_rate_pct": agree_rate,
+                "override_rate_pct": override_rate,
+                "quality_index": quality_index,
+                "decisions": records,
+            }

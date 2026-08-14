@@ -6,7 +6,7 @@ import uuid
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from .db import StateRepository
 from .orchestrator import CreditOrchestrator
@@ -54,6 +54,30 @@ class POCRequestHandler(BaseHTTPRequestHandler):
             else:
                 self._json(payload)
             return
+        if path == "/api/approver-quality-report":
+            query = parse_qs(urlparse(self.path).query)
+            user_id = query.get("user_id", [None])[0]
+            db = StateRepository(self.db_path)
+            report = db.generate_approver_quality_report(user_id)
+            self._json(report)
+            return
+
+        case_decisions_prefix = "/api/human-decisions/case/"
+        if path.startswith(case_decisions_prefix):
+            case_id = path[len(case_decisions_prefix) :]
+            db = StateRepository(self.db_path)
+            decisions = db.get_human_decisions_by_case(case_id)
+            self._json({"case_id": case_id, "decisions": decisions})
+            return
+
+        user_decisions_prefix = "/api/human-decisions/user/"
+        if path.startswith(user_decisions_prefix):
+            user_id = path[len(user_decisions_prefix) :]
+            db = StateRepository(self.db_path)
+            decisions = db.get_human_decisions_by_user(user_id)
+            self._json({"user_id": user_id, "decisions": decisions})
+            return
+
         if path in {"/", "/index.html"}:
             body = files("credit_agent_poc").joinpath("static/index.html").read_bytes()
             self.send_response(HTTPStatus.OK)
@@ -66,6 +90,20 @@ class POCRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        if path == "/api/human-decision":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+            try:
+                data = json.loads(body)
+                db = StateRepository(self.db_path)
+                result = db.record_human_decision(data)
+                self._json(result, HTTPStatus.CREATED)
+            except ValueError as exc:
+                self._json({"error": "invalid_request", "message": str(exc)}, HTTPStatus.BAD_REQUEST)
+            except Exception as exc:
+                self._json({"error": "record_failed", "message": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
         async_prefix = "/api/run-async/"
         if path.startswith(async_prefix):
             scenario_id = path[len(async_prefix) :]

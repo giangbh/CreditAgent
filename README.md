@@ -159,4 +159,5 @@ Xem bộ tài liệu kỹ thuật chi tiết của dự án trong thư mục [`d
 3. **[03. Danh Mục 25 Backend Tools & Mapping Hệ Thống Ngân Hàng](docs/03_danh_muc_25_tools_va_backend_mapping.md):** Bảng mapping 25 Tools với DMS, Core Banking, Graph DB, BRE, LOS & Yêu cầu dữ liệu sẵn sàng.
 4. **[04. Hướng Dẫn Vận Hành & Lộ Trình Triển Khai MVP](docs/04_huong_dan_van_hanh_va_trien_khai_mvp.md):** Hướng dẫn bật Temporal Server, Worker, Web UI và Roadmap 6 tháng cho Production MVP.
 5. **[05. Kiến Trúc & Công Nghệ IDP/OCR Tín Dụng](docs/05_kien_truc_ocr_va_idp_cho_tin_dung.md):** Mô hình VLM/OCR tốt nhất (Qwen2-VL, PaddleOCR, LayoutLMv3), Tech Stack & Schema JSON chuẩn hóa cho BCTC và Sao kê.
-6. Xem thêm [kiến trúc Multi-Agent đồng phê duyệt tín dụng](kien-truc-multi-agent-dong-phe-duyet-tin-dung.md) gốc.
+6. **[06. Quy Trình Phê Duyệt Con Người & Đánh Giá Chất Lượng Cán Bộ](docs/06_luong_phe_duyet_con_nguoi_va_danh_gia_chat_luong.md):** Luồng ký duyệt con người, mã băm chữ ký số, quy tắc giải trình Override AI & Báo cáo chất lượng phê duyệt (Approver Quality KPIs).
+7. Xem thêm [kiến trúc Multi-Agent đồng phê duyệt tín dụng](kien-truc-multi-agent-dong-phe-duyet-tin-dung.md) gốc.
