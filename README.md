@@ -150,6 +150,12 @@ Tests kiểm tra outcome của toàn bộ scenarios, đủ 13 node, 14 checkpoin
 
 Bước tiếp theo hợp lý là thay từng simulated adapter bằng sandbox backend, dùng gold set đã được Credit/Risk gán nhãn và chạy shadow mode trước khi cân nhắc bất kỳ hard gate production nào.
 
-## Tài liệu kiến trúc
+## Tài liệu kiến trúc & Triển khai
 
-Xem [kiến trúc Multi-Agent đồng phê duyệt tín dụng](kien-truc-multi-agent-dong-phe-duyet-tin-dung.md) để biết State schema mục tiêu, ownership, debate protocol và Approval Control design.
+Xem bộ tài liệu kỹ thuật chi tiết của dự án trong thư mục [`docs/`](docs/):
+
+1. **[01. Kiến Trúc Tổng Quan Multi-Agent](docs/01_kien_truc_tong_quan_multi_agent.md):** 13 Logical Agents, 5 Tầng Workflow, Shared State & Ma trận Quyền ghi `OWNERSHIP`.
+2. **[02. Temporal.io Orchestration & LocalDB Persistence](docs/02_temporal_orchestration_va_persistence.md):** Luồng Durable Execution (`@workflow.defn`, `@activity.defn`), SQLite `localDB` & Checkpoint Schema.
+3. **[03. Danh Mục 25 Backend Tools & Mapping Hệ Thống Ngân Hàng](docs/03_danh_muc_25_tools_va_backend_mapping.md):** Bảng mapping 25 Tools với DMS, Core Banking, Graph DB, BRE, LOS & Yêu cầu dữ liệu sẵn sàng.
+4. **[04. Hướng Dẫn Vận Hành & Lộ Trình Triển Khai MVP](docs/04_huong_dan_van_hanh_va_trien_khai_mvp.md):** Hướng dẫn bật Temporal Server, Worker, Web UI và Roadmap 6 tháng cho Production MVP.
+5. Xem thêm [kiến trúc Multi-Agent đồng phê duyệt tín dụng](kien-truc-multi-agent-dong-phe-duyet-tin-dung.md) gốc.
