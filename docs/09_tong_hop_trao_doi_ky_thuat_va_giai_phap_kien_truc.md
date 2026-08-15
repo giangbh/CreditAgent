@@ -17,6 +17,7 @@
 9. [Chuyên đề 9: Phân Tích Chuyên Sâu Agent 1 (A1) & IDP/OCR Cho BCTC & Sao Kê](#chuyên-đề-9-phân-tích-chuyên-sâu-agent-1-a1--idpocr-cho-bctc--sao-kê)
 10. [Chuyên đề 10: Thiết Kế Chống Timeout Cho Tác Vụ OCR Tài Liệu Lớn](#chuyên-đề-10-thiết-kế-chống-timeout-cho-tác-vụ-ocr-tài-liệu-lớn)
 11. [Chuyên đề 11: Thiết Kế Thực Chiến Cho Cụm Stage 2 (A6 - A7 - A8) Theo Mô Hình Phản Biện Biện Chứng](#chuyên-đề-11-thiết-kế-thực-chiến-cho-cụm-stage-2-a6---a7---a8-theo-mô-hình-phản-biện-biện-chứng)
+12. [Chuyên đề 12: Chuẩn Hóa Bộ Prompt Templates Stage 1 (A1 - A5) Cung Cấp Bằng Chứng Định Lượng Cho Stage 2](#chuyên-đề-12-chuẩn-hóa-bộ-prompt-templates-stage-1-a1---a5-cung-cấp-bằng-chứng-định-lượng-cho-stage-2)
 
 ---
 
@@ -202,6 +203,20 @@ Triển khai mô hình **Circuit Breaker 3 Trạng thái** tại `tools/circuit_
    - **Ràng buộc Dẫn chứng Số liệu Tuyệt đối**: Cấm nhận định cảm tính; mọi luận điểm bắt buộc trích xuất chỉ số định lượng từ Stage 1.
    - **Quy trình Phản biện 3 Bước**: A6 đưa ra 3 luận điểm bảo vệ ➔ A7 tấn công trực diện các điểm gãy ➔ A8 đóng vai trò Trọng tài độc lập.
    - **Đầu ra Biện chứng (Synthesis Table & Actionable Covenants)**: A8 tổng hợp `synthesis_matrix` và đề xuất danh mục `required_covenants` (ví dụ: cam kết chuyển 80% dòng tiền về tài khoản, duy trì DSCR tối thiểu 1.20x) và `conditions_precedent` phục vụ Cán bộ đưa vào Hợp đồng tín dụng.
+
+---
+
+## Chuyên đề 12: Chuẩn Hóa Bộ Prompt Templates Stage 1 (A1 - A5) Cung Cấp Bằng Chứng Định Lượng Cho Stage 2
+
+### ❓ Câu hỏi đặt ra:
+*Làm thế nào để nâng cấp bộ Prompt Templates cho các Agent từ A1 đến A5 nhằm cung cấp bằng chứng định lượng, nhất quán và có cấu trúc sâu cho cuộc tranh luận Stage 2 (A6 – A8)?*
+
+### 💡 Giải đáp & Quyết định kỹ thuật:
+1. **A1 (Intake & Normalization)**: Tập trung vào kiểm kê chứng từ, tính toàn vẹn OCR, kiểm tra cửa sổ sao kê (>=12 tháng) và cấm tuyệt đối việc đưa ra phán đoán tín dụng.
+2. **A2 (Cashflow & Turnover)**: Đo lường hệ số biến động dòng tiền, phát hiện bất thường cuối tháng (Window Dressing) và tính tỷ lệ tập trung đối tác (>40%) cung cấp cho A6 (Tăng trưởng) và A7 (Rủi ro tập trung).
+3. **A3 (Transaction Integrity & Graph)**: Phân tích đồ thị mạng lưới bên liên quan, phát hiện dòng tiền vòng quanh đảo nợ ($A \rightarrow B \rightarrow C \rightarrow A$) và gán nhãn `cycle_score` làm bằng chứng chặn rủi ro cho A7 và A8.
+4. **A4 (Financial Capacity & DSCR)**: Tính toán hệ số trả nợ gốc $\text{DSCR} \ge 1.20$, thực hiện thử nghiệm độ nhạy `stressed_dscr` (-20% doanh thu, +200 bps lãi suất) và khẳng định nguyên tắc *TSBĐ không thể chữa lỗi dòng tiền chính*.
+5. **A5 (Policy & Authority)**: Ánh xạ quy tắc cứng (Tenor tối đa, LTV), trích dẫn điều khoản chính sách chuẩn xác (`policy_citation_id`) và xác định cấp thẩm quyền phê duyệt bắt buộc (`BRANCH_DIRECTOR`, `CREDIT_COMMITTEE`, `CRO_RISK`).
 
 ---
 
