@@ -91,3 +91,9 @@ gantt
    - **Giao diện Dashboard:** Cho phép Cán bộ Thẩm định xem Side-by-side (Tờ trình con người vs Ý kiến AI Co-approval).
    - **Luồng Bác bỏ AI (Human Override):** Bắt buộc nhập lý do giải trình khi đi ngược ý kiến AI để ghi vết Audit Trail cho Ngân hàng Nhà nước.
    - **Shadow Mode:** Chạy thử nghiệm ngầm trên 200 hồ sơ quá khứ để đo đạc chỉ số chính xác (Precision/Recall) trước khi Go-live.
+
+---
+
+> 📖 **Tham khảo chi tiết cấu trúc thư mục mở rộng Enterprise:**  
+> Xem chi tiết sơ đồ cây thư mục và quy tắc phân tầng Clean Architecture tại [07. Định Hướng Kiến Trúc & Cấu Trúc Thư Mục Enterprise](07_dinh_huong_kien_truc_va_cau_truc_thu_muc_enterprise.md).
+
