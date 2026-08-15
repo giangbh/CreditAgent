@@ -80,6 +80,10 @@ class ToolExecutionError(RuntimeError):
     pass
 
 
+class ToolRateLimitError(RuntimeError):
+    pass
+
+
 OWNERSHIP: dict[str, set[str]] = {
     "A1": {"case_file", "evidence_catalog", "data_quality"},
     "A2": {"analyst_reports.cashflow"},

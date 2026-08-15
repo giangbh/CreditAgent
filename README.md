@@ -157,4 +157,5 @@ Hệ thống bao gồm **79 unit tests tự động** kiểm tra toàn diện:
 5. **[05. Kiến Trúc & Công Nghệ IDP/OCR Tín Dụng](docs/05_kien_truc_ocr_va_idp_cho_tin_dung.md):** Mô hình VLM/OCR tốt nhất (Qwen2-VL, PaddleOCR, LayoutLMv3), Tech Stack & Schema JSON chuẩn hóa cho BCTC và Sao kê.
 6. **[06. Quy Trình Phê Duyệt Con Người & Đánh Giá Chất Lượng Cán Bộ](docs/06_luong_phe_duyet_con_nguoi_va_danh_gia_chat_luong.md):** Luồng ký duyệt con người, mã băm chữ ký số, quy tắc giải trình Override AI & Báo cáo chất lượng phê duyệt (Approver Quality KPIs).
 7. **[07. Định Hướng Kiến Trúc & Cấu Trúc Thư Mục Enterprise](docs/07_dinh_huong_kien_truc_va_cau_truc_thu_muc_enterprise.md):** Cấu trúc thư mục chuẩn hóa Enterprise phân tách Clean Architecture (Domain, Agents, Tools Adapters, Governance, Infrastructure, WebUI).
-8. Xem thêm [kiến trúc Multi-Agent đồng phê duyệt tín dụng](kien-truc-multi-agent-dong-phe-duyet-tin-dung.md) gốc.
+8. **[08. Thiết Kế Hạ Tầng & Quy Hoạch Năng Lực (Sizing Guide) Enterprise](docs/08_thiet_ke_ha_tang_va_sizing_enterprise.md):** Quy hoạch tài nguyên máy chủ, tính toán Peak TPS (10.000 hồ sơ/ngày), Sizing K8s Workers, Temporal Cluster, PostgreSQL DB & Private LLM (NVIDIA A100/H100).
+9. Xem thêm [kiến trúc Multi-Agent đồng phê duyệt tín dụng](kien-truc-multi-agent-dong-phe-duyet-tin-dung.md) gốc.

@@ -115,6 +115,17 @@ class BoundaryTests(unittest.TestCase):
         for node_id in ["A6", "A7", "A8", "A10", "A11", "A12", "A13"]:
             self.assertEqual(TOOL_ALLOWLIST[node_id], set())
 
+    def test_tool_gateway_rate_limiting(self):
+        from credit_agent_poc.models import ToolRateLimitError
+        scenario = SCENARIOS["approve_conditions"]
+        state = CreditState(case_id="CASE-X", scenario_id=scenario.scenario_id, run_id="RUN-X")
+        gateway = ToolGateway(max_calls_per_second=2)
+        gateway.call("A1", state, scenario, "document_inventory")
+        gateway.call("A1", state, scenario, "classify_document", {"document_id": "DOC-1"})
+        with self.assertRaises(ToolRateLimitError):
+            gateway.call("A1", state, scenario, "extract_document_fields")
+        self.assertEqual(state.audit[-1].event, "tool_call_rate_limited")
+
     def test_control_rejects_an_unsafe_approve_opinion(self):
         class UnsafeApproveModel(ScenarioModel):
             @staticmethod
