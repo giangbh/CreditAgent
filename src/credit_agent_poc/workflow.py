@@ -81,21 +81,20 @@ async def execute_agent_activity(node_id: str, state_dict: Dict[str, Any], scena
     }
 
 
-@workflow.defn(name="CreditCoApprovalWorkflow")
-class CreditCoApprovalWorkflow:
-    """Temporal Workflow: Multi-Agent Credit Co-Approval DAG."""
+@workflow.defn(name="Stage1EvidenceChildWorkflow")
+class Stage1EvidenceChildWorkflow:
+    """Stage 1 Child Workflow: Evidence Production (A1 -> Parallel [A2, A3, A4] -> A5)."""
 
     @workflow.run
-    async def run(self, scenario_id: str) -> Dict[str, Any]:
-        # Step 1: A1 Intake
+    async def run(self, scenario_id: str, input_state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        state = input_state or {}
         a1_res = await workflow.execute_activity(
             execute_agent_activity,
-            args=["A1", {}, scenario_id],
+            args=["A1", state, scenario_id],
             schedule_to_close_timeout=timedelta(seconds=30),
         )
         current_state = a1_res.get("updated_state", {})
 
-        # Step 2: Parallel Fan-out A2, A3, A4
         a2_task = workflow.execute_activity(
             execute_agent_activity, args=["A2", current_state, scenario_id], schedule_to_close_timeout=timedelta(seconds=30)
         )
@@ -108,7 +107,6 @@ class CreditCoApprovalWorkflow:
 
         a2_res, a3_res, a4_res = await asyncio.gather(a2_task, a3_task, a4_task)
 
-        # Merge branch analyst reports into current_state
         for branch_res in (a2_res, a3_res, a4_res):
             branch_state = branch_res.get("updated_state", {})
             if "analyst_reports" in branch_state:
@@ -116,14 +114,120 @@ class CreditCoApprovalWorkflow:
             if "audit" in branch_state and isinstance(branch_state["audit"], list):
                 current_state.setdefault("audit", []).extend(branch_state["audit"])
 
-        # Step 3: Sequential A5 .. A13
-        for node in ["A5", "A6", "A7", "A8", "A9", "A10", "A11", "A12", "A13"]:
-            node_res = await workflow.execute_activity(
-                execute_agent_activity, args=[node, current_state, scenario_id], schedule_to_close_timeout=timedelta(seconds=30)
-            )
-            current_state = node_res.get("updated_state", current_state)
+        a5_res = await workflow.execute_activity(
+            execute_agent_activity,
+            args=["A5", current_state, scenario_id],
+            schedule_to_close_timeout=timedelta(seconds=30),
+        )
+        return a5_res.get("updated_state", current_state)
 
-        return {"status": "COMPLETED", "scenario_id": scenario_id, "final_state": current_state}
+
+@workflow.defn(name="Stage2ChallengeChildWorkflow")
+class Stage2ChallengeChildWorkflow:
+    """Stage 2 Child Workflow: Credit Debate & Challenge (A6 -> A7 -> A8)."""
+
+    @workflow.run
+    async def run(self, scenario_id: str, input_state: Dict[str, Any]) -> Dict[str, Any]:
+        current_state = input_state
+        for node in ["A6", "A7", "A8"]:
+            res = await workflow.execute_activity(
+                execute_agent_activity,
+                args=[node, current_state, scenario_id],
+                schedule_to_close_timeout=timedelta(seconds=30),
+            )
+            current_state = res.get("updated_state", current_state)
+        return current_state
+
+
+@workflow.defn(name="Stage3StructuringChildWorkflow")
+class Stage3StructuringChildWorkflow:
+    """Stage 3 Child Workflow: Deal Structuring (A9)."""
+
+    @workflow.run
+    async def run(self, scenario_id: str, input_state: Dict[str, Any]) -> Dict[str, Any]:
+        res = await workflow.execute_activity(
+            execute_agent_activity,
+            args=["A9", input_state, scenario_id],
+            schedule_to_close_timeout=timedelta(seconds=30),
+        )
+        return res.get("updated_state", input_state)
+
+
+@workflow.defn(name="Stage4RiskCommitteeChildWorkflow")
+class Stage4RiskCommitteeChildWorkflow:
+    """Stage 4 Child Workflow: Risk Committee Debate (A10 -> A11 -> A12)."""
+
+    @workflow.run
+    async def run(self, scenario_id: str, input_state: Dict[str, Any]) -> Dict[str, Any]:
+        current_state = input_state
+        for node in ["A10", "A11", "A12"]:
+            res = await workflow.execute_activity(
+                execute_agent_activity,
+                args=[node, current_state, scenario_id],
+                schedule_to_close_timeout=timedelta(seconds=30),
+            )
+            current_state = res.get("updated_state", current_state)
+        return current_state
+
+
+@workflow.defn(name="Stage5CoApprovalChildWorkflow")
+class Stage5CoApprovalChildWorkflow:
+    """Stage 5 Child Workflow: Co-Approval Manager Advisory Opinion (A13)."""
+
+    @workflow.run
+    async def run(self, scenario_id: str, input_state: Dict[str, Any]) -> Dict[str, Any]:
+        res = await workflow.execute_activity(
+            execute_agent_activity,
+            args=["A13", input_state, scenario_id],
+            schedule_to_close_timeout=timedelta(seconds=30),
+        )
+        return res.get("updated_state", input_state)
+
+
+@workflow.defn(name="CreditCoApprovalWorkflow")
+class CreditCoApprovalWorkflow:
+    """Parent Temporal Workflow: Multi-Agent Credit Co-Approval DAG coordinating 5 Stage Child Workflows."""
+
+    @workflow.run
+    async def run(self, scenario_id: str) -> Dict[str, Any]:
+        workflow_id = workflow.info().workflow_id if hasattr(workflow, "info") and callable(workflow.info) else "credit-wf"
+
+        # Stage 1 Child Workflow
+        s1_state = await workflow.execute_child_workflow(
+            Stage1EvidenceChildWorkflow.run,
+            args=[scenario_id, {}],
+            id=f"{workflow_id}-stage1",
+        )
+
+        # Stage 2 Child Workflow
+        s2_state = await workflow.execute_child_workflow(
+            Stage2ChallengeChildWorkflow.run,
+            args=[scenario_id, s1_state],
+            id=f"{workflow_id}-stage2",
+        )
+
+        # Stage 3 Child Workflow
+        s3_state = await workflow.execute_child_workflow(
+            Stage3StructuringChildWorkflow.run,
+            args=[scenario_id, s2_state],
+            id=f"{workflow_id}-stage3",
+        )
+
+        # Stage 4 Child Workflow
+        s4_state = await workflow.execute_child_workflow(
+            Stage4RiskCommitteeChildWorkflow.run,
+            args=[scenario_id, s3_state],
+            id=f"{workflow_id}-stage4",
+        )
+
+        # Stage 5 Child Workflow
+        s5_state = await workflow.execute_child_workflow(
+            Stage5CoApprovalChildWorkflow.run,
+            args=[scenario_id, s4_state],
+            id=f"{workflow_id}-stage5",
+        )
+
+        return {"status": "COMPLETED", "scenario_id": scenario_id, "final_state": s5_state}
 
 
 class TemporalWorkflowEngine:
@@ -379,7 +483,14 @@ async def start_temporal_worker(target_host: str = "localhost:7233", task_queue:
     worker = Worker(
         client,
         task_queue=task_queue,
-        workflows=[CreditCoApprovalWorkflow],
+        workflows=[
+            CreditCoApprovalWorkflow,
+            Stage1EvidenceChildWorkflow,
+            Stage2ChallengeChildWorkflow,
+            Stage3StructuringChildWorkflow,
+            Stage4RiskCommitteeChildWorkflow,
+            Stage5CoApprovalChildWorkflow,
+        ],
         activities=[execute_agent_activity],
     )
     print(f"Temporal Worker listening on queue '{task_queue}' at {target_host}...")
