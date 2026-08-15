@@ -1,161 +1,157 @@
 # CreditAgent POC
 
-POC chạy được cho kiến trúc Multi-Agent đồng phê duyệt tín dụng SME. Mục tiêu là chứng minh cách 13 AI Agent được điều phối, trao đổi qua Shared State, gọi backend tools qua allowlist và tạo ra nhiều kết quả khác nhau mà không trao quyền phê duyệt thật cho LLM.
+POC sản phẩm **Kiến trúc Multi-Agent Đồng Phê Duyệt Tín Dụng SME** được điều phối bởi **Temporal.io**. Mục tiêu là chứng minh cách 13 AI Agent được điều phối qua Shared State, gọi 25 backend tools qua cổng an toàn Tool Gateway, thực thi bền vững qua Temporal Child Workflows và bảo mật bởi bộ quy tắc kiểm soát **Deterministic Approval Control Gate** không trao quyền quyết định duyệt/giải ngân cho LLM.
 
-## POC chứng minh điều gì
+---
 
-- Đủ 13 logical agents A1–A13 chạy end-to-end.
-- A2, A3 và A4 fan-out trên cùng một State snapshot, sau đó merge bằng State ownership.
-- Agent không chat hoặc gọi trực tiếp agent khác.
-- Mọi thay đổi đi qua `StatePatch` và optimistic `state_version`.
-- Tool Gateway từ chối tool không nằm trong allowlist của agent.
-- 25 logical tool contracts giả lập document, transaction, graph, financial, policy và deal backends.
-- Hai vòng phản biện tạo `CreditDebate` và `RiskDebate` dạng append-only.
-- A13 chỉ tạo `CoApprovalOpinion.status=DRAFT`.
-- Approval Control là deterministic code và không cấp quyền approve/disburse cho AI.
-- Checkpoint và audit trail sau từng node.
-- Sáu scenario có outcome khác nhau và chạy lặp lại được offline.
+## 🎯 POC chứng minh điều gì
 
-## Chạy nhanh
+- **Đủ 13 Logical Agents A1–A13** chạy end-to-end qua 5 Giai đoạn (Stage 1 đến Stage 5).
+- **Điều phối Temporal Parent & Child Workflows**: Workflow chính `CreditCoApprovalWorkflow` quản lý 5 Child Workflows độc lập từng Stage.
+- **Tách biệt Động cơ Thực thi (Execution Engine) & Kết quả Nghiệp vụ (Business Outcome)**: `RUNNING`/`COMPLETED` tách bạch với `PASS` (xanh), `WARNING` (vàng), `ESCALATE` (tím), `FAIL` (đỏ).
+- **Thực thi song song Fan-out/Join Barrier**: A2, A3 và A4 chạy song song trên cùng một State snapshot và merge qua State ownership.
+- **Agent không chat hoặc gọi trực tiếp Agent khác**: Mọi thay đổi đi qua `StatePatch` và optimistic `state_version`.
+- **Cổng An toàn Tool Gateway**: Từ chối các Tool không nằm trong allowlist của Agent, tự động ghi vết vi phạm vào Audit Trail.
+- **25 Logical Tool Contracts & Enterprise Adapters**: Hỗ trợ simulated backends và sẵn sàng đầu nối với CIC, Core Banking, IDP/OCR BCTC và Định giá TSBĐ.
+- **Hai vòng phản biện (Credit Debate & Risk Debate)** dạng append-only.
+- **AI chỉ tạo Ý kiến Tư vấn Bản nháp (`CoApprovalOpinion.status=DRAFT`)**.
+- **Chữ ký số & Phê duyệt Con người (Human-in-the-Loop)**: Ký duyệt bằng mã băm Chữ ký số HMAC-SHA256, quy tắc bắt buộc giải trình khi Override AI và Báo cáo Chất lượng Cán bộ (Quality Index KPIs).
+- **Deterministic Control Plane**: Mã lệnh cố định, không trao quyền phê duyệt hoặc giải ngân cho AI.
+- **Sáu kịch bản tín dụng** có kết quả đầu ra khác nhau và chạy lặp lại offline/online 100%.
 
-Yêu cầu Python 3.9 trở lên. POC mặc định không cần API key và không có dependency ngoài standard library.
+---
 
+## 🚀 Chạy nhanh (Quick Start)
+
+Yêu cầu Python 3.9 trở lên và gói `temporalio`.
+
+### 1. Chạy CLI Offline / Test Contracts
 ```bash
 cd CreditAgent
 PYTHONPATH=src python3 -m credit_agent_poc list
 PYTHONPATH=src python3 -m credit_agent_poc run --scenario approve_conditions
 PYTHONPATH=src python3 -m credit_agent_poc run-all --output-dir demo-output
 ```
+Lệnh `run-all` sinh báo cáo chi tiết JSON và HTML cho từng case trong thư mục `demo-output/`.
 
-Lệnh `run-all` sinh JSON và HTML report cho từng case trong `demo-output/`.
+### 2. Chạy trên Native Temporal Server Cluster (`127.0.0.1:7233`)
 
-## Review UI
+```bash
+# Terminal 1: Khởi động Temporal Server start-dev
+temporal server start-dev --ip 127.0.0.1 --port 7233
+
+# Terminal 2: Khởi động Temporal Worker Process
+PYTHONPATH=src python3 -m credit_agent_poc worker --target-host 127.0.0.1:7233 --task-queue credit-approval-queue
+
+# Terminal 3: Chạy kịch bản qua Temporal Server Cluster
+PYTHONPATH=src python3 -m credit_agent_poc run --scenario approve_conditions --engine temporal-cluster
+```
+*Giao diện Temporal Web UI quản lý Workflow tại: **[http://localhost:8233](http://localhost:8233)**.*
+
+---
+
+## 🌐 Giao diện Web Review UI & Phê duyệt Con người (Port 8080)
 
 ```bash
 PYTHONPATH=src python3 -m credit_agent_poc serve --port 8080
 ```
 
-Mở [http://127.0.0.1:8080](http://127.0.0.1:8080), chọn scenario và bấm **Chạy kịch bản**. UI hiển thị:
+Truy cập: **[http://127.0.0.1:8080](http://127.0.0.1:8080)** để xem giao diện trực quan:
 
-- Execution status (`RUNNING`, `COMPLETED`, `PENDING`) được tách khỏi business outcome (`PASS` xanh, `WARNING` vàng, `ESCALATE` tím, `FAIL` đỏ); A2–A4 có thể cùng `RUNNING` trong fan-out.
-- Workflow canvas chia đúng năm stage: Evidence Production, Credit Challenge, Deal Structuring, Risk Committee và Advisory Opinion/Control.
-- Fork/join barrier, debate direction, manager/judge và decision boundary được thể hiện trực tiếp trên graph.
-- 13 node và State version sau mỗi node.
-- Input context đã giới hạn, system/role prompt, structured output và tool calls của từng agent.
-- Bốn evidence reports.
-- Credit Debate và Risk Committee turns.
-- Deal proposal và A13 draft opinion.
-- Deterministic control status và blocked reasons.
-- Simulated backend calls, checkpoints và audit trail.
+- **Hỗ trợ Song ngữ (English / Tiếng Việt)**: Công cụ chuyển đổi ngôn ngữ hiển thị động ở thanh Topbar (`🌐 Lang: [🇻🇳 Tiếng Việt | 🇬🇧 English]`).
+- **Hiển thị Động cơ Backend Real-time**: Nhãn trạng thái hiển thị rõ luồng đang chạy trên `🚀 Native Temporal Server Cluster (127.0.0.1:7233)` hay `Temporal.io In-Memory Engine` kèm đường dẫn trực tiếp `[Mở Temporal Web UI Port 8233 ↗]`.
+- **Workflow Canvas 5 Stage**: Trực quan hóa tiến trình thực thi, Fork/Join barrier, Debate direction, Decision boundary.
+- **State Timeline & Risk Propagation**: 14 bounded snapshots lưu vết thay đổi State version và đường đi lan truyền rủi ro.
+- **Bảng Ký số & Giải trình Phê duyệt Con người (Human Decision Panel)**:
+  - Cho phép Cán bộ chọn **Đồng ý với AI (AGREE)** hoặc **Bác bỏ AI (OVERRIDE)**.
+  - Bắt buộc chọn Mã lý do (`OVERRIDE_REASON_CODE`) và nhập Nội dung giải trình (>10 ký tự) khi bác bỏ AI.
+  - Tự động sinh Mã băm Chữ ký số HMAC-SHA256 bảo vệ tính toàn vẹn của Tờ trình.
+- **Báo cáo Chất lượng Cán bộ (Approver Quality Analytics)**: Dashboard phân tích lịch sử phê duyệt, tỷ lệ Override AI và Chỉ số Tuân thủ Chất lượng (Quality Index) của Cán bộ Phê duyệt.
 
-### Sprint 1: outcome và risk observability
+---
 
-- Outcome policy được version tại `src/credit_agent_poc/config/outcome_policy.json`. Mỗi node outcome trả về `level`, `reason_code`, `reason`, `rule_version` và execution status riêng biệt.
-- API result có `risk_propagation`: risk source, đường đi qua các agent, từng edge và terminal node.
-- Workflow có bộ lọc `ISSUES`, `PASS`, `WARNING`, `ESCALATE`, `FAIL`; stage header tổng hợp outcome count.
-- Chọn một risk chain để làm mờ node không liên quan và theo dõi đường lan truyền từ evidence tới Approval Control.
-- State timeline lưu 14 bounded snapshots sau A1–A13 và CONTROL. Mỗi checkpoint có State version, SHA-256 hash, changed paths và toàn bộ giá trị State nghiệp vụ tại thời điểm đó; click agent trên canvas sẽ mở đúng checkpoint tương ứng.
+## 📋 Danh mục 6 Kịch bản Tín dụng (Credit Scenarios)
 
-Mở mục **Input / output trace theo từng Agent** sau khi run hoàn tất. Mỗi agent có bốn ô: `INPUT CONTEXT`, `STRUCTURED OUTPUT`, `SYSTEM + ROLE PROMPT` và `TOOL CALLS`. Đây là trace phục vụ POC; production phải áp dụng redaction, access control và retention policy trước khi lưu prompt/context.
-
-Bạn cũng có thể click trực tiếp một agent trên workflow canvas để mở và cuộn tới trace tương ứng.
-
-## Các scenario
-
-| ID | Nội dung | Expected A13 outcome |
+| ID | Nội dung | Outcome Mong đợi |
 |---|---|---|
-| `approve_conditions` | Repayment tốt, concentration cần monitoring | `APPROVE_WITH_CONDITIONS` |
+| `approve_conditions` | Repayment tốt, DSCR ≥ 1.2, concentration cần monitoring | `APPROVE_WITH_CONDITIONS` |
 | `escalate_policy_exception` | Economics tốt nhưng tenor vi phạm pilot policy | `ESCALATE_TO_CRO_RISK` |
-| `reject_missing_evidence` | Thiếu financial statement và statement window quá ngắn | `REJECT_INSUFFICIENT_EVIDENCE` |
-| `escalate_circular_funds` | Graph phát hiện circular flow score cao | `ESCALATE_TO_CRO_RISK` |
-| `reject_weak_cashflow_high_collateral` | Collateral cao nhưng DSCR không đủ | `REJECT_INSUFFICIENT_EVIDENCE` |
-| `reject_tool_failure` | Cashflow backend lỗi và workflow fail closed | `REJECT_INSUFFICIENT_EVIDENCE` |
+| `reject_missing_evidence` | Thiếu financial statement và window sao kê quá ngắn | `REJECT_INSUFFICIENT_EVIDENCE` |
+| `escalate_circular_funds` | Đồ thị giao dịch phát hiện điểm rủi ro dòng tiền vòng quanh high score | `ESCALATE_TO_CRO_RISK` |
+| `reject_weak_cashflow_high_collateral` | Collateral cao nhưng DSCR không đạt (Collateral không chữa lỗi nguồn thu chính) | `REJECT_INSUFFICIENT_EVIDENCE` |
+| `reject_tool_failure` | Cashflow backend bị lỗi, hệ thống tự động Fail-Closed | `REJECT_INSUFFICIENT_EVIDENCE` |
 
-Kết quả baseline của `ScenarioModel`: **6/6 Orchestration & Control Contract Tests Passed** (xác minh tính đúng đắn của luồng đồ thị DAG và Deterministic Approval Control Plane; không dùng làm thước đo độ chính xác phán đoán của LLM production).
+---
 
-## Luồng orchestration
+## 🏛️ Kiến trúc Điều phối Temporal (Parent & Child Workflows)
 
 ```mermaid
-flowchart LR
-    A1["A1 Intake"] --> F["Evidence Fan-out Snapshot"]
-    F --> A2["A2 Cashflow (Sao kê ngân hàng)"]
-    F --> A3["A3 Integrity (Đồ thị giao dịch)"]
-    F --> A4["A4 Capacity (BCTC gốc từ A1)"]
-    A2 --> B["Barrier Merge"]
-    A3 --> B
-    A4 --> B
-    B --> A5["A5 Policy"]
-    A5 --> A6["A6 Advocate"]
-    A6 --> A7["A7 Challenger"]
-    A7 --> A8["A8 Assessment"]
-    A8 --> A9["A9 Deal"]
-    A9 --> A10["A10 Business"]
-    A10 --> A11["A11 Conservative"]
-    A11 --> A12["A12 Governance"]
-    A12 --> A13["A13 Draft Opinion"]
-    A13 --> C["Deterministic Approval Control"]
+flowchart TD
+    subgraph Parent ["Parent Workflow: CreditCoApprovalWorkflow"]
+        S1_CW["Stage1EvidenceChildWorkflow<br>(A1 ➔ Parallel [A2, A3, A4] ➔ A5)"]
+        S2_CW["Stage2ChallengeChildWorkflow<br>(A6 ➔ A7 ➔ A8 Debate)"]
+        S3_CW["Stage3StructuringChildWorkflow<br>(A9 Deal Structuring)"]
+        S4_CW["Stage4RiskCommitteeChildWorkflow<br>(A10 ➔ A11 ➔ A12 Risk Debate)"]
+        S5_CW["Stage5CoApprovalChildWorkflow<br>(A13 Advisory Draft Opinion)"]
+        
+        S1_CW --> S2_CW --> S3_CW --> S4_CW --> S5_CW
+    end
+    
+    S5_CW --> CTRL["Deterministic Approval Control Gate<br>(Hard-block Check & Digital Seal Verification)"]
+    CTRL --> HUMAN["Human Approval Portal<br>(Ký số HMAC-SHA256 / Agree vs Override AI)"]
 ```
 
-## Model modes
+---
 
-### Offline `ScenarioModel` (Contract Test Double)
-
-Đây là model double có output tái lập. Nó vẫn nhận Base Prompt, Role Prompt và bounded context qua `ModelAdapter`. Mục đích là kiểm tra hợp đồng điều phối (DAG contract) và control state machine mà không phụ thuộc network, API key hoặc model nondeterminism.
-
-### OpenAI-compatible endpoint
-
-Adapter này dành cho thử nghiệm sau khi POC offline đã pass:
-
-```bash
-export CREDIT_AGENT_LLM_BASE_URL=https://your-compatible-endpoint/v1
-export CREDIT_AGENT_LLM_API_KEY=replace-with-secret-from-your-secret-manager
-export CREDIT_AGENT_LLM_MODEL=your-model-deployment
-PYTHONPATH=src python3 -m credit_agent_poc run --scenario approve_conditions --model openai-compatible
-```
-
-Không commit `.env` hoặc key. Adapter remote là điểm mở rộng, chưa phải phần được chứng minh bởi test baseline vì output schema của từng provider cần được harden riêng.
-
-## Source map
+## 🗺️ Cấu trúc Mã Nguồn Dự án (Source Map)
 
 ```text
 src/credit_agent_poc/
-  scenarios.py     # six synthetic credit cases
-  models.py        # Shared State, StatePatch and ownership validator
-  tools.py         # Tool Gateway, allowlists and simulated backends
-  prompts.py       # shared safety prompt and 13 role prompts
-  model.py         # offline and OpenAI-compatible model adapters
-  agents.py        # context/tool/output contract for A1-A13
-  orchestrator.py  # graph, fan-out/barrier, checkpoints and control
-  report.py        # standalone JSON/HTML report
-  web.py           # zero-dependency local review server
-  static/index.html
-tests/test_poc.py
+  agents/                # Mô-đun hóa 13 Agent theo 5 Stage nghiệp vụ
+    prompts/             # Quản lý các Markdown Prompt Templates (.md)
+    stage1_evidence.py   # Agent A1, A2, A3, A4, A5
+    stage2_challenge.py  # Agent A6, A7, A8
+    stage3_structuring.py# Agent A9
+    stage4_risk.py       # Agent A10, A11, A12
+    stage5_opinion.py    # Agent A13
+    registry.py          # Dynamic Agent Registry & Lookup
+  tools/                 # Cổng an toàn Tool Gateway & Adapters
+    gateway.py           # Tool Gateway phân quyền Allowlist & Audit Log
+    simulated/           # Nhóm công cụ giả lập cho Demo/Test (intake, financial, integrity, structuring)
+    adapters/            # Enterprise Adapters thực tế (CIC, Core Banking, IDP OCR, Collateral)
+  control_gate.py        # Thẩm định Độc lập, Hard-block checker & Chữ ký số HMAC-SHA256
+  workflow.py            # Temporal Parent Workflow & 5 Stage Child Workflows
+  orchestrator.py        # Engine điều phối cao cấp & persistence
+  scenarios.py           # 6 kịch bản tín dụng thử nghiệm
+  models.py              # Shared State, StatePatch & Ownership validator
+  model.py               # Offline ScenarioModel & OpenAI-compatible adapters
+  db.py                  # SQLite repository, Audit Trail & Quality Analytics
+  report.py              # Động cơ tạo báo cáo HTML/JSON
+  web.py                 # REST API Web Review Server
+  static/index.html      # Giao diện Web Review UI Song ngữ (VI/EN)
 ```
 
-## Tests
+---
+
+## 🧪 Bộ Kiểm thử Tự động (Automated Tests)
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-Tests kiểm tra outcome của toàn bộ scenarios, đủ 13 node, 14 checkpoints, tool denial, stale StatePatch, State ownership, backend failure và nguyên tắc collateral không thay thế primary repayment.
+Hệ thống bao gồm **79 unit tests tự động** kiểm tra toàn diện:
+- Bộ 20 Tiêu chuẩn Nghiệm thu Ranh giới (`AC1` đến `AC20`).
+- Kiểm soát an toàn Control Gate, Hard-block và phân cấp Thẩm quyền (`Exception Authority`).
+- Xác minh Mã băm Chữ ký số HMAC-SHA256 và phát hiện hồ sơ bị can thiệp (Tampered record).
+- Tính nguyên tử và chống trùng lặp dữ liệu (`Idempotency & Concurrency`).
+- Phân tích chỉ số Chất lượng Cán bộ Phê duyệt (Quality Index).
 
-## Ranh giới của POC
+---
 
-- Simulated tools không chứng minh chất lượng OCR, transaction categorization hoặc policy retrieval thật.
-- `ScenarioModel` chứng minh graph/control contract, không chứng minh chất lượng suy luận của model production.
-- State/checkpoint đang nằm trong memory của một process.
-- Local UI không có production IAM, multi-tenancy hoặc PII controls đầy đủ.
-- Không có action phê duyệt, ký hợp đồng hoặc giải ngân.
-
-Bước tiếp theo hợp lý là thay từng simulated adapter bằng sandbox backend, dùng gold set đã được Credit/Risk gán nhãn và chạy shadow mode trước khi cân nhắc bất kỳ hard gate production nào.
-
-## Tài liệu kiến trúc & Triển khai
-
-Xem bộ tài liệu kỹ thuật chi tiết của dự án trong thư mục [`docs/`](docs/):
+## 📖 Thư mục Tài liệu Kỹ thuật Chi tiết (`docs/`)
 
 1. **[01. Kiến Trúc Tổng Quan Multi-Agent](docs/01_kien_truc_tong_quan_multi_agent.md):** 13 Logical Agents, 5 Tầng Workflow, Shared State & Ma trận Quyền ghi `OWNERSHIP`.
-2. **[02. Temporal.io Orchestration & LocalDB Persistence](docs/02_temporal_orchestration_va_persistence.md):** Luồng Durable Execution (`@workflow.defn`, `@activity.defn`), SQLite `localDB` & Checkpoint Schema.
+2. **[02. Temporal.io Orchestration & LocalDB Persistence](docs/02_temporal_orchestration_va_persistence.md):** Luồng Durable Execution (`@workflow.defn`, `@activity.defn`), Parent/Child Workflows & SQLite Checkpoint Schema.
 3. **[03. Danh Mục 25 Backend Tools & Mapping Hệ Thống Ngân Hàng](docs/03_danh_muc_25_tools_va_backend_mapping.md):** Bảng mapping 25 Tools với DMS, Core Banking, Graph DB, BRE, LOS & Yêu cầu dữ liệu sẵn sàng.
 4. **[04. Hướng Dẫn Vận Hành & Lộ Trình Triển Khai MVP](docs/04_huong_dan_van_hanh_va_trien_khai_mvp.md):** Hướng dẫn bật Temporal Server, Worker, Web UI và Roadmap 6 tháng cho Production MVP.
 5. **[05. Kiến Trúc & Công Nghệ IDP/OCR Tín Dụng](docs/05_kien_truc_ocr_va_idp_cho_tin_dung.md):** Mô hình VLM/OCR tốt nhất (Qwen2-VL, PaddleOCR, LayoutLMv3), Tech Stack & Schema JSON chuẩn hóa cho BCTC và Sao kê.
