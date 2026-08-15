@@ -119,10 +119,23 @@ class ScenarioModel(ModelAdapter):
     def _a6(c: dict[str, Any]) -> dict[str, Any]:
         financial = c["reports"]["financial_capacity"]
         thesis = "supportable_with_controls" if financial["primary_repayment_viable"] else "not_currently_supportable"
+        strengths = [
+            {
+                "factor": "PRIMARY_REPAYMENT",
+                "evidence": f"DSCR {financial.get('dscr', 0)}x, Stressed DSCR {financial.get('stressed_dscr', 0)}x",
+                "impact": "Core operating cashflow covers debt servicing obligation",
+            }
+        ] if financial["primary_repayment_viable"] else []
         return {
             "speaker": "CREDIT_ADVOCATE",
             "claim_id": "CLAIM-ADV-1",
             "thesis": thesis,
+            "growth_rationale": "Viable debt repayment demonstrated via audited cashflow metrics." if financial["primary_repayment_viable"] else "Cashflow metrics insufficient for standalone debt service.",
+            "strengths": strengths,
+            "proposed_mitigants": [
+                "Require minimum 80% revenue turnover through bank account",
+                "Quarterly financial covenant monitoring",
+            ],
             "evidence_refs": financial.get("calculation_refs", []),
             "concessions": [] if thesis.startswith("supportable") else ["primary_repayment_not_demonstrated"],
         }
@@ -139,11 +152,21 @@ class ScenarioModel(ModelAdapter):
             challenges.append("weak_primary_repayment")
         if reports["policy"]["escalation_required"]:
             challenges.append("mandatory_policy_escalation")
+        active_challenges = challenges or ["monitoring_conditions_must_be_enforceable"]
+        downside_scenarios = [
+            {
+                "scenario_type": "DOWNSIDE_STRESS_TEST",
+                "stressed_metric": f"Stressed DSCR {reports['financial_capacity'].get('stressed_dscr', 0)}x",
+                "vulnerability": f"Cash flow vulnerability triggered by {', '.join(active_challenges)}",
+            }
+        ]
         return {
             "speaker": "RISK_CHALLENGER",
             "claim_id": "CLAIM-RISK-1",
             "challenges_claim_id": "CLAIM-ADV-1",
-            "challenges": challenges or ["monitoring_conditions_must_be_enforceable"],
+            "challenges": active_challenges,
+            "downside_scenarios": downside_scenarios,
+            "attack_vectors": [f"Downside risk identified: {ch}" for ch in active_challenges],
             "evidence_refs": ["CLAIM-ADV-1"],
         }
 
@@ -158,12 +181,33 @@ class ScenarioModel(ModelAdapter):
             rating = "OVERWEIGHT_CAUTION"
         else:
             rating = "APPROVE"
+
+        challenges = c["debate"][-1].get("challenges", []) if c["debate"] else []
+        synthesis_matrix = [
+            {
+                "dimension": "PRIMARY_REPAYMENT_AND_RISK",
+                "advocate_view": f"Advocate proposed credit based on financial capacity (DSCR {reports['financial_capacity'].get('dscr', 0)}x)",
+                "challenger_view": f"Challenger raised concerns on: {', '.join(challenges) if challenges else 'Standard monitoring'}",
+                "synthesis_decision": "Approved with binding risk covenants" if rating == "APPROVE" else "Mitigation insufficient to cure fundamental credit weakness",
+            }
+        ]
+        required_covenants = [
+            "Maintain minimum quarterly DSCR of 1.20x",
+            "Channel minimum 80% contract revenue through bank account",
+        ] if rating in {"APPROVE", "OVERWEIGHT_CAUTION"} else []
+        conditions_precedent = [
+            "Complete perfection and registration of security collateral interests prior to drawdown",
+        ] if rating in {"APPROVE", "OVERWEIGHT_CAUTION"} else []
+
         return {
             "rating": rating,
             "primary_repayment_source": "operating_cashflow",
             "accepted_claims": ["CLAIM-ADV-1"] if rating == "APPROVE" else [],
-            "unresolved_risks": c["debate"][-1].get("challenges", []),
+            "unresolved_risks": challenges,
             "recommended_amount": reports["financial_capacity"].get("supported_amount", 0),
+            "synthesis_matrix": synthesis_matrix,
+            "required_covenants": required_covenants,
+            "conditions_precedent": conditions_precedent,
         }
 
     @staticmethod

@@ -192,6 +192,30 @@ class BoundaryTests(unittest.TestCase):
         self.assertIn("TOOL_GATEWAY", components)
         self.assertIn("LLM_ADAPTER", components)
 
+    def test_stage2_dialectical_debate_synthesis_and_covenants(self):
+        result = CreditOrchestrator().run("approve_conditions")
+        debate = result.state.credit_debate
+        assessment = result.state.credit_assessment
+
+        # Verify A6 Advocate output
+        a6_turn = next((t for t in debate if t["speaker"] == "CREDIT_ADVOCATE"), None)
+        self.assertIsNotNone(a6_turn)
+        self.assertIn("strengths", a6_turn)
+        self.assertIn("growth_rationale", a6_turn)
+
+        # Verify A7 Challenger output
+        a7_turn = next((t for t in debate if t["speaker"] == "RISK_CHALLENGER"), None)
+        self.assertIsNotNone(a7_turn)
+        self.assertIn("downside_scenarios", a7_turn)
+        self.assertIn("attack_vectors", a7_turn)
+
+        # Verify A8 Assessment Manager synthesis & covenants
+        self.assertIn("synthesis_matrix", assessment)
+        self.assertIn("required_covenants", assessment)
+        self.assertIn("conditions_precedent", assessment)
+        self.assertGreater(len(assessment["synthesis_matrix"]), 0)
+        self.assertGreater(len(assessment["required_covenants"]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
