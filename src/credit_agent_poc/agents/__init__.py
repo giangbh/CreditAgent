@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..logger import audit_log
 from ..model import ModelAdapter
 from ..models import CreditState, StatePatch, StateValidationError
 from ..prompts import prompt_for
@@ -33,11 +34,14 @@ class AgentRuntime(
     def run(self, node_id: str, state: CreditState, scenario: Scenario) -> AgentExecution:
         if node_id not in AGENT_NAMES:
             raise StateValidationError(f"unknown agent node: {node_id}")
+        audit_log("AGENT_EXECUTION_STARTED", "AGENT_RUNTIME", state.trace_id, state.case_id, node_id, details={"agent_name": AGENT_NAMES[node_id], "model_name": self.model.name})
         context = getattr(self, f"_context_{node_id.lower()}")(state, scenario)
         prompt = prompt_for(node_id)
+        audit_log("LLM_INFERENCE_CALL", "LLM_ADAPTER", state.trace_id, state.case_id, node_id, details={"model_name": self.model.name})
         output = self.model.generate(node_id, prompt, context)
         self._validate_output(node_id, output)
         patches = self._patches(node_id, state, output)
+        audit_log("AGENT_EXECUTION_COMPLETED", "AGENT_RUNTIME", state.trace_id, state.case_id, node_id, details={"patches_count": len(patches)})
         return AgentExecution(
             node_id=node_id,
             agent_name=AGENT_NAMES[node_id],

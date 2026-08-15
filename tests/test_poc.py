@@ -126,6 +126,31 @@ class BoundaryTests(unittest.TestCase):
             gateway.call("A1", state, scenario, "extract_document_fields")
         self.assertEqual(state.audit[-1].event, "tool_call_rate_limited")
 
+    def test_circuit_breaker_trips_to_open_and_fallbacks(self):
+        from credit_agent_poc.tools import CircuitBreaker, CircuitState
+        scenario = SCENARIOS["reject_tool_failure"]
+        state = CreditState(case_id="CASE-FAIL", scenario_id=scenario.scenario_id, run_id="RUN-FAIL")
+        cb = CircuitBreaker(failure_threshold=2, cooldown_seconds=1.0)
+        gateway = ToolGateway(circuit_breaker=cb)
+
+        # Call 1 fails (ToolExecutionError) -> failure_count = 1
+        res1 = gateway.call("A2", state, scenario, "compute_cashflow_metrics")
+        self.assertEqual(res1["status"], "ERROR")
+        self.assertEqual(cb.get_state("compute_cashflow_metrics"), CircuitState.CLOSED)
+
+        # Call 2 fails -> failure_count = 2 >= threshold -> trips to OPEN
+        res2 = gateway.call("A2", state, scenario, "compute_cashflow_metrics")
+        self.assertEqual(res2["status"], "ERROR")
+        self.assertEqual(cb.get_state("compute_cashflow_metrics"), CircuitState.OPEN)
+        self.assertEqual(state.audit[-2].event, "circuit_breaker_opened")
+
+        # Call 3 while OPEN -> activates Degraded Fallback Mode
+        res3 = gateway.call("A2", state, scenario, "compute_cashflow_metrics")
+        self.assertEqual(res3["status"], "DEGRADED_MODE")
+        self.assertTrue(res3["degraded"])
+        self.assertEqual(res3["reason"], "CIRCUIT_BREAKER_OPEN")
+        self.assertEqual(state.audit[-1].event, "tool_call_fallback")
+
     def test_control_rejects_an_unsafe_approve_opinion(self):
         class UnsafeApproveModel(ScenarioModel):
             @staticmethod
@@ -143,6 +168,29 @@ class BoundaryTests(unittest.TestCase):
         self.assertEqual(result.state.control["status"], "BLOCKED_INVALID_OPINION")
         self.assertFalse(result.state.control["opinion_validated"])
         self.assertIn("PRIMARY_REPAYMENT_NOT_VIABLE", result.state.control["blocked_reasons"])
+
+    def test_enterprise_audit_logger_end_to_end_traceability(self):
+        import json
+        import os
+        from credit_agent_poc.logger import EnterpriseAuditLogger
+        
+        result = CreditOrchestrator().run("approve_conditions")
+        trace_id = result.state.trace_id
+        self.assertTrue(trace_id.startswith("tr-"))
+        
+        log_file = EnterpriseAuditLogger.get_logger().log_file_path
+        self.assertTrue(os.path.exists(log_file))
+        
+        with open(log_file, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        
+        matching_logs = [json.loads(line) for line in lines if json.loads(line).get("trace_id") == trace_id]
+        self.assertGreater(len(matching_logs), 10)
+        
+        components = {log["component"] for log in matching_logs}
+        self.assertIn("AGENT_RUNTIME", components)
+        self.assertIn("TOOL_GATEWAY", components)
+        self.assertIn("LLM_ADAPTER", components)
 
 
 if __name__ == "__main__":

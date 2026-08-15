@@ -29,6 +29,7 @@ class AuditEvent:
     node_id: str
     timestamp: str = field(default_factory=utc_now)
     details: dict[str, Any] = field(default_factory=dict)
+    trace_id: Optional[str] = None
 
 
 @dataclass
@@ -36,6 +37,7 @@ class CreditState:
     case_id: str
     scenario_id: str
     run_id: str
+    trace_id: str = ""
     case_revision: int = 1
     state_version: int = 0
     case_file: dict[str, Any] = field(default_factory=dict)
@@ -51,6 +53,10 @@ class CreditState:
     tool_history: list[dict[str, Any]] = field(default_factory=list)
     node_history: list[dict[str, Any]] = field(default_factory=list)
     audit: list[AuditEvent] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if not self.trace_id:
+            self.trace_id = f"tr-{self.run_id}"
 
     def snapshot(self) -> dict[str, Any]:
         return copy.deepcopy(dataclasses.asdict(self))

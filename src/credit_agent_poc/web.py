@@ -9,6 +9,7 @@ from importlib.resources import files
 from urllib.parse import parse_qs, urlparse
 
 from .db import StateRepository
+from .logger import audit_log
 from .orchestrator import CreditOrchestrator
 from .scenarios import SCENARIOS, scenario_catalog
 
@@ -216,6 +217,9 @@ class POCRequestHandler(BaseHTTPRequestHandler):
                 elif event["event"] == "NODE_COMPLETED" and node_id in run["active_nodes"]:
                     run["active_nodes"].remove(node_id)
 
+        trace_id = f"tr-{run_id}"
+        case_id = f"CASE-{scenario_id.upper()}"
+        audit_log("API_RUN_REQUEST_STARTED", "WEB_SERVER", trace_id, case_id, details={"run_id": run_id, "scenario_id": scenario_id, "engine": engine})
         try:
             orchestrator = cls.get_orchestrator(step_delay_ms=300, engine=engine)
             result = orchestrator.run(scenario_id, observer=observe)
@@ -223,11 +227,13 @@ class POCRequestHandler(BaseHTTPRequestHandler):
                 cls.runs[run_id]["status"] = "COMPLETED"
                 cls.runs[run_id]["active_nodes"] = []
                 cls.runs[run_id]["result"] = result.to_dict()
+            audit_log("API_RUN_REQUEST_COMPLETED", "WEB_SERVER", trace_id, case_id, details={"run_id": run_id, "outcome": result.actual_outcome})
         except Exception as exc:
             with cls.runs_lock:
                 cls.runs[run_id]["status"] = "FAILED"
                 cls.runs[run_id]["active_nodes"] = []
                 cls.runs[run_id]["error"] = str(exc)
+            audit_log("API_RUN_REQUEST_FAILED", "WEB_SERVER", trace_id, case_id, level="ERROR", details={"run_id": run_id, "error": str(exc)})
 
 
 def serve(host: str = "127.0.0.1", port: int = 8080, db_path: str = "credit_agent.db") -> None:

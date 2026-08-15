@@ -25,6 +25,8 @@ from decimal import Decimal
 from enum import Enum, IntEnum
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from .logger import audit_log
+
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
@@ -1093,6 +1095,21 @@ class DecisionService:
         with self.decisions.lock:
             self.decisions.insert(decision)
             case.control_state = self._next_state(request.action, control)
+
+        audit_log(
+            "HUMAN_DECISION_SIGNED",
+            "CONTROL_GATE",
+            f"tr-{run_id}",
+            case.case_id,
+            "CONTROL",
+            details={
+                "decision_id": decision_id,
+                "action": request.action.value,
+                "actor_id": actor.actor_id,
+                "alignment": alignment.value,
+                "integrity_seal": decision.integrity_seal,
+            },
+        )
 
         # 6. Phan hoi nguoc ve Model Risk
         code = REASON_CODES.get(request.divergence_reason_code or "")

@@ -8,6 +8,7 @@ from .adapters import (
     IDPOCRAdapter,
 )
 from .base import BaseTool, TOOL_ALLOWLIST, ToolResult, _hash, tool_contract_summary
+from .circuit_breaker import CircuitBreaker, CircuitState
 from .gateway import ToolGateway
 from .simulated import (
     FinancialToolsMixin,
@@ -22,6 +23,8 @@ __all__ = [
     "BaseBankAdapter",
     "BaseTool",
     "CICAdapter",
+    "CircuitBreaker",
+    "CircuitState",
     "CollateralAdapter",
     "CoreBankingAdapter",
     "FinancialToolsMixin",
