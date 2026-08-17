@@ -9,4 +9,6 @@ demo-output/
 
 .gstack/
 graphify-out/
-*.db
+logs/
+*.log
+
