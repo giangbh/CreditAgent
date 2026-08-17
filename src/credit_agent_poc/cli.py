@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import List, Optional
 
+from .config import CONFIG
 from .db import StateRepository
 from .model import OpenAICompatibleModel, ScenarioModel
 from .orchestrator import CreditOrchestrator
@@ -35,24 +36,24 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--scenario", choices=SCENARIOS, default="approve_conditions")
     run.add_argument("--model", choices=["mock", "openai-compatible"], default="mock")
     run.add_argument("--engine", choices=["temporal", "temporal-cluster", "legacy"], default="temporal")
-    run.add_argument("--db-path", type=str, default="credit_agent.db", help="SQLite localDB database path")
+    run.add_argument("--db-path", type=str, default=CONFIG.DB_PATH, help="SQLite localDB database path")
     run.add_argument("--json", action="store_true", help="print the full run as JSON")
     run.add_argument("--output-dir", type=Path, help="write JSON and HTML reports")
 
     run_all = sub.add_parser("run-all", help="run all scenarios")
     run_all.add_argument("--model", choices=["mock", "openai-compatible"], default="mock")
     run_all.add_argument("--engine", choices=["temporal", "temporal-cluster", "legacy"], default="temporal")
-    run_all.add_argument("--db-path", type=str, default="credit_agent.db", help="SQLite localDB database path")
+    run_all.add_argument("--db-path", type=str, default=CONFIG.DB_PATH, help="SQLite localDB database path")
     run_all.add_argument("--output-dir", type=Path, default=Path("demo-output"))
 
     web = sub.add_parser("serve", help="start the local review UI")
-    web.add_argument("--host", default="127.0.0.1")
-    web.add_argument("--port", type=int, default=8080)
-    web.add_argument("--db-path", type=str, default="credit_agent.db", help="SQLite localDB database path")
+    web.add_argument("--host", default=CONFIG.WEB_HOST)
+    web.add_argument("--port", type=int, default=CONFIG.WEB_PORT)
+    web.add_argument("--db-path", type=str, default=CONFIG.DB_PATH, help="SQLite localDB database path")
 
     worker = sub.add_parser("worker", help="start a native Temporal Worker process")
-    worker.add_argument("--target-host", default="localhost:7233", help="Temporal Server cluster host")
-    worker.add_argument("--task-queue", default="credit-approval-queue", help="Temporal task queue name")
+    worker.add_argument("--target-host", default=CONFIG.TEMPORAL_TARGET_HOST, help="Temporal Server cluster host")
+    worker.add_argument("--task-queue", default=CONFIG.TEMPORAL_TASK_QUEUE, help="Temporal task queue name")
     return parser
 
 

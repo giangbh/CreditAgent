@@ -9,7 +9,9 @@ from dataclasses import dataclass, replace
 from typing import Any, Callable, Optional
 
 from .agents import AGENT_NAMES, AgentExecution, AgentRuntime
+from .config import CONFIG
 from .db import StateRepository
+
 from .model import ModelAdapter, ScenarioModel
 from .models import AuditEvent, CreditState, StatePatch, apply_patch
 from .outcomes import OUTCOME_POLICY, build_outcome_map
@@ -38,7 +40,7 @@ class RunResult:
     def to_dict(self) -> dict[str, Any]:
         engine_label = "Temporal.io Workflow Engine (In-Memory Simulation)"
         if self.engine_type == "temporal-cluster":
-            engine_label = "Native Temporal Server Cluster (127.0.0.1:7233)"
+            engine_label = f"Native Temporal Server Cluster ({CONFIG.TEMPORAL_TARGET_HOST})"
         elif self.engine_type == "legacy":
             engine_label = "Legacy Python Orchestrator (Mock/In-Process)"
 
@@ -54,7 +56,7 @@ class RunResult:
                 "engine_label": engine_label,
                 "is_temporal": self.engine_type in ("temporal", "temporal-cluster"),
                 "is_cluster": self.engine_type == "temporal-cluster",
-                "temporal_ui_url": "http://localhost:8233" if self.engine_type == "temporal-cluster" else None,
+                "temporal_ui_url": CONFIG.TEMPORAL_UI_URL if self.engine_type == "temporal-cluster" else None,
             },
             "pipeline": PIPELINE,
             "checkpoints": self.checkpoints,

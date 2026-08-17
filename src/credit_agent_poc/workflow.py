@@ -10,7 +10,9 @@ from dataclasses import replace
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from .agents import AGENT_NAMES, AgentExecution, AgentRuntime
+from .config import CONFIG
 from .db import StateRepository
+
 from .model import ModelAdapter, ScenarioModel
 from .models import AuditEvent, CreditState, StatePatch, apply_patch
 from .outcomes import build_outcome_map
@@ -248,16 +250,17 @@ class TemporalWorkflowEngine:
         self.repository = db_repository or StateRepository(db_path=":memory:")
         self.step_delay_ms = step_delay_ms
 
-    async def execute_native_temporal_cluster(self, scenario_id: str, target_host: str = "localhost:7233") -> Any:
+    async def execute_native_temporal_cluster(self, scenario_id: str, target_host: Optional[str] = None) -> Any:
         """Connects natively to a live Temporal Server cluster using temporalio SDK."""
         if not TEMPORAL_SDK_AVAILABLE:
             raise RuntimeError("temporalio package is not installed. Please run `pip install temporalio`.")
-        client = await Client.connect(target_host)
+        host = target_host or CONFIG.TEMPORAL_TARGET_HOST
+        client = await Client.connect(host)
         handle = await client.start_workflow(
             CreditCoApprovalWorkflow.run,
             scenario_id,
             id=f"credit-workflow-{scenario_id}-{str(uuid.uuid4())[:8]}",
-            task_queue="credit-approval-queue",
+            task_queue=CONFIG.TEMPORAL_TASK_QUEUE,
         )
         return await handle.result()
 
@@ -475,14 +478,16 @@ class TemporalWorkflowEngine:
             )
 
 
-async def start_temporal_worker(target_host: str = "localhost:7233", task_queue: str = "credit-approval-queue") -> None:
+async def start_temporal_worker(target_host: Optional[str] = None, task_queue: Optional[str] = None) -> None:
     """Starts a native Temporal Worker listening for workflow and activity tasks."""
     if not TEMPORAL_SDK_AVAILABLE:
         raise RuntimeError("temporalio package is not installed.")
-    client = await Client.connect(target_host)
+    host = target_host or CONFIG.TEMPORAL_TARGET_HOST
+    queue = task_queue or CONFIG.TEMPORAL_TASK_QUEUE
+    client = await Client.connect(host)
     worker = Worker(
         client,
-        task_queue=task_queue,
+        task_queue=queue,
         workflows=[
             CreditCoApprovalWorkflow,
             Stage1EvidenceChildWorkflow,
@@ -493,5 +498,5 @@ async def start_temporal_worker(target_host: str = "localhost:7233", task_queue:
         ],
         activities=[execute_agent_activity],
     )
-    print(f"Temporal Worker listening on queue '{task_queue}' at {target_host}...")
+    print(f"Temporal Worker listening on queue '{queue}' at {host}...")
     await worker.run()

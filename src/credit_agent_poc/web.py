@@ -8,23 +8,26 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 from urllib.parse import parse_qs, urlparse
 
+from .config import CONFIG
 from .db import StateRepository
 from .logger import audit_log
 from .orchestrator import CreditOrchestrator
 from .scenarios import SCENARIOS, scenario_catalog
 
 
-def is_temporal_cluster_alive(host: str = "127.0.0.1", port: int = 7233) -> bool:
+def is_temporal_cluster_alive(host: Optional[str] = None, port: Optional[int] = None) -> bool:
     import socket
+    target_host = host or CONFIG.TEMPORAL_HOST
+    target_port = port or CONFIG.TEMPORAL_PORT
     try:
-        with socket.create_connection((host, port), timeout=0.2):
+        with socket.create_connection((target_host, target_port), timeout=0.2):
             return True
     except Exception:
         return False
 
 
 class POCRequestHandler(BaseHTTPRequestHandler):
-    db_path: str = "credit_agent.db"
+    db_path: str = CONFIG.DB_PATH
     orchestrator: Optional[CreditOrchestrator] = None
     runs: dict[str, dict] = {}
     runs_lock = threading.Lock()
@@ -61,8 +64,8 @@ class POCRequestHandler(BaseHTTPRequestHandler):
             self._json({
                 "cluster_alive": cluster_alive,
                 "active_engine": active_engine,
-                "engine_label": "Native Temporal Server Cluster (127.0.0.1:7233)" if cluster_alive else "Temporal.io Workflow Engine (In-Memory Simulation)",
-                "temporal_ui_url": "http://localhost:8233" if cluster_alive else None,
+                "engine_label": f"Native Temporal Server Cluster ({CONFIG.TEMPORAL_TARGET_HOST})" if cluster_alive else "Temporal.io Workflow Engine (In-Memory Simulation)",
+                "temporal_ui_url": CONFIG.TEMPORAL_UI_URL if cluster_alive else None,
             })
             return
         if path == "/api/health":
@@ -155,8 +158,8 @@ class POCRequestHandler(BaseHTTPRequestHandler):
                 effective_engine = engine_param
 
             if effective_engine == "temporal-cluster":
-                engine_label = "Native Temporal Server Cluster (127.0.0.1:7233)"
-                temporal_ui_url = "http://localhost:8233"
+                engine_label = f"Native Temporal Server Cluster ({CONFIG.TEMPORAL_TARGET_HOST})"
+                temporal_ui_url = CONFIG.TEMPORAL_UI_URL
             elif effective_engine == "legacy":
                 engine_label = "Legacy Python Orchestrator (Mock/In-Process)"
                 temporal_ui_url = None
@@ -236,10 +239,13 @@ class POCRequestHandler(BaseHTTPRequestHandler):
             audit_log("API_RUN_REQUEST_FAILED", "WEB_SERVER", trace_id, case_id, level="ERROR", details={"run_id": run_id, "error": str(exc)})
 
 
-def serve(host: str = "127.0.0.1", port: int = 8080, db_path: str = "credit_agent.db") -> None:
-    POCRequestHandler.db_path = db_path
-    server = ThreadingHTTPServer((host, port), POCRequestHandler)
-    print(f"CreditAgent POC (localDB: {db_path}): http://{host}:{port}")
+def serve(host: Optional[str] = None, port: Optional[int] = None, db_path: Optional[str] = None) -> None:
+    target_host = host or CONFIG.WEB_HOST
+    target_port = port or CONFIG.WEB_PORT
+    target_db = db_path or CONFIG.DB_PATH
+    POCRequestHandler.db_path = target_db
+    server = ThreadingHTTPServer((target_host, target_port), POCRequestHandler)
+    print(f"CreditAgent POC (localDB: {target_db}): http://{target_host}:{target_port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
