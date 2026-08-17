@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CreditAgent - Integration Architecture & Backend Topology</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f8fafc;
+      --paper-card: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --soft: #64748b;
+      --rule: rgba(15, 23, 42, 0.12);
+      --rule-solid: #cbd5e1;
+      --accent: #eb6c36;
+      --link: #2563eb;
+      --success: #16a34a;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      background-color: var(--paper);
+      color: var(--ink);
+      font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 32px 24px;
+      line-height: 1.5;
+    }
+    
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    
+    header {
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 16px;
+    }
+    
+    .eyebrow {
+      font-family: 'Geist Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--soft);
+      margin-bottom: 4px;
+    }
+    
+    h1 {
+      font-family: 'Instrument Serif', Georgia, serif;
+      font-size: 32px;
+      font-weight: 400;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+    }
+    
+    .subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      max-width: 900px;
+    }
+    
+    .diagram-frame {
+      background: var(--paper);
+      border: 1px solid var(--rule-solid);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 28px;
+      overflow-x: auto;
+    }
+    
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: var(--paper);
+    }
+    
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .card {
+      background: var(--paper-card);
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      padding: 18px;
+    }
+    
+    .card-eyebrow {
+      font-family: 'Geist Mono', monospace;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--soft);
+      margin-bottom: 8px;
+    }
+    
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot.coral { background: var(--accent); }
+    .dot.blue { background: var(--link); }
+    .dot.green { background: var(--success); }
+    
+    .card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    
+    .card p, .card ul {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    
+    .card ul {
+      list-style-type: none;
+      padding-left: 0;
+    }
+    
+    .card ul li {
+      position: relative;
+      padding-left: 14px;
+      margin-bottom: 6px;
+    }
+    
+    .card ul li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--soft);
+    }
+    
+    footer {
+      border-top: 1px solid var(--rule);
+      padding-top: 12px;
+      font-family: 'Geist Mono', monospace;
+      font-size: 10px;
+      color: var(--soft);
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="eyebrow">Enterprise Banking Integration Topology</div>
+    <h1>Kiến Trúc Tích Hợp Systems & 25 Backend Tools</h1>
+    <div class="subtitle">
+      Tích hợp hub-and-spoke giữa 6 hệ thống Core Banking, Temporal Durable Orchestration Engine, LocalDB Checkpoint Store và Cổng Phê duyệt Con người.
+    </div>
+  </header>
+
+  <div class="diagram-frame">
+    <svg viewBox="0 0 1200 680" width="1200" height="680" role="img" aria-labelledby="dp-integ-title dp-integ-desc">
+      <title id="dp-integ-title">CreditAgent Integration Architecture and Topology</title>
+      <desc id="dp-integ-desc">Kiến trúc tích hợp hệ thống CreditAgent kết nối 6 nguồn dữ liệu backend ngân hàng thông qua 25 tools với Multi-Agent Platform, Temporal Engine và Cổng Phê duyệt.</desc>
+      
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#475569"/>
+        </marker>
+        <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#eb6c36"/>
+        </marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#2563eb"/>
+        </marker>
+      </defs>
+
+      <!-- Canvas Background -->
+      <rect width="100%" height="100%" fill="#f8fafc"/>
+
+      <!-- LEFT COLUMN: BANKING BACKEND SOURCES -->
+      <text x="40" y="32" fill="#0f172a" font-size="12" font-weight="700" font-family="'Geist', sans-serif">1. BANKING BACKENDS (SOURCES)</text>
+      <text x="40" y="46" fill="#64748b" font-size="9" font-family="'Geist Mono', monospace">6 SYSTEMS · 25 BACKEND TOOLS</text>
+
+      <!-- Source 1: DMS / ECM -->
+      <rect x="40" y="60" width="176" height="76" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1"/>
+      <rect x="48" y="66" width="32" height="12" rx="2" fill="#f1f5f9"/>
+      <text x="64" y="75" fill="#475569" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle">DMS</text>
+      <text x="128" y="85" fill="#0f172a" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">DMS / OCR Engine</text>
+      <text x="128" y="100" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">BCTC, Sao kê, CCCD, TSBĐ</text>
+      <text x="128" y="114" fill="#2563eb" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Tools 1-4 · REST/gRPC</text>
+
+      <!-- Source 2: Core Banking CBS -->
+      <rect x="40" y="148" width="176" height="76" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1"/>
+      <rect x="48" y="154" width="32" height="12" rx="2" fill="#f1f5f9"/>
+      <text x="64" y="163" fill="#475569" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle">CBS</text>
+      <text x="128" y="173" fill="#0f172a" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Core Banking / CIF</text>
+      <text x="128" y="188" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">CIF profile, Lịch sử nợ</text>
+      <text x="128" y="202" fill="#2563eb" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Tools 5, 7 · ISO8583/REST</text>
+
+      <!-- Source 3: Graph DB Neo4j -->
+      <rect x="40" y="236" width="176" height="76" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1"/>
+      <rect x="48" y="242" width="40" height="12" rx="2" fill="#f1f5f9"/>
+      <text x="68" y="251" fill="#475569" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle">NEO4J</text>
+      <text x="128" y="261" fill="#0f172a" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Graph DB & Anti-Fraud</text>
+      <text x="128" y="276" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Circular funds, Trace funds</text>
+      <text x="128" y="290" fill="#2563eb" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Tools 10-12 · Bolt/Cypher</text>
+
+      <!-- Source 4: Financial Spreading Engine -->
+      <rect x="40" y="324" width="176" height="76" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1"/>
+      <rect x="48" y="330" width="36" height="12" rx="2" fill="#f1f5f9"/>
+      <text x="66" y="339" fill="#475569" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle">SPREAD</text>
+      <text x="128" y="349" fill="#0f172a" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Financial Spreading</text>
+      <text x="128" y="364" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">DSCR, ICR, Stress-test</text>
+      <text x="128" y="378" fill="#2563eb" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Tools 13-16 · REST API</text>
+
+      <!-- Source 5: Policy BRE & RAG -->
+      <rect x="40" y="412" width="176" height="76" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1"/>
+      <rect x="48" y="418" width="36" height="12" rx="2" fill="#f1f5f9"/>
+      <text x="66" y="427" fill="#475569" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle">POLICY</text>
+      <text x="128" y="437" fill="#0f172a" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Policy BRE & Vector DB</text>
+      <text x="128" y="452" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Credit policy, Citation</text>
+      <text x="128" y="466" fill="#2563eb" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Tools 17-21 · gRPC/Vector</text>
+
+      <!-- Source 6: LOS & Pricing Engine -->
+      <rect x="40" y="500" width="176" height="76" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1"/>
+      <rect x="48" y="506" width="32" height="12" rx="2" fill="#f1f5f9"/>
+      <text x="64" y="515" fill="#475569" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle">LOS</text>
+      <text x="128" y="525" fill="#0f172a" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">LOS & Pricing Engine</text>
+      <text x="128" y="540" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Amortization, Risk pricing</text>
+      <text x="128" y="554" fill="#2563eb" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Tools 22-24 · REST API</text>
+
+
+      <!-- CENTER CONTAINER: MULTI-AGENT PLATFORM ZONE -->
+      <rect x="264" y="32" width="672" height="544" rx="8" fill="rgba(241,245,249,0.4)" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="280" y="52" fill="#0f172a" font-size="12" font-weight="700" font-family="'Geist', sans-serif">2. CREDITAGENT CORE PLATFORM</text>
+
+      <!-- Top Bar: Temporal Engine -->
+      <rect x="280" y="68" width="640" height="56" rx="6" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1"/>
+      <rect x="292" y="76" width="56" height="14" rx="2" fill="#2563eb"/>
+      <text x="320" y="86" fill="white" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">TEMPORAL</text>
+      <text x="600" y="92" fill="#1e40af" font-size="12" font-weight="700" font-family="'Geist', sans-serif" text-anchor="middle">Temporal.io Workflow Orchestrator Engine</text>
+      <text x="600" y="110" fill="#475569" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Task Queue: credit-approval-queue · Durable Execution & Automatic Retry</text>
+
+      <!-- Middle Content: 13 Agents + Shared State -->
+      <rect x="280" y="140" width="640" height="268" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1"/>
+      <text x="296" y="160" fill="#64748b" font-size="9" font-weight="600" font-family="'Geist Mono', monospace">13 LOGICAL AI AGENTS PIPELINE</text>
+      
+      <!-- Agents Stage Cards inside Platform -->
+      <!-- Stage 1 Box -->
+      <rect x="296" y="172" width="140" height="220" rx="4" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="366" y="188" fill="#0f172a" font-size="10" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">T1 Evidence</text>
+      <text x="366" y="202" fill="#64748b" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">A1..A5 Agents</text>
+      <path d="M 310,214 L 422,214" stroke="#cbd5e1" stroke-width="0.8"/>
+      <text x="366" y="230" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Intake & CIF</text>
+      <text x="366" y="246" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Fan-out Barrier</text>
+      <text x="366" y="262" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Cashflow & Graph</text>
+      <text x="366" y="278" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Financial DSCR</text>
+      <text x="366" y="294" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Policy RAG</text>
+
+      <!-- Stage 2 & 3 Box -->
+      <rect x="448" y="172" width="140" height="220" rx="4" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="518" y="188" fill="#0f172a" font-size="10" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">T2-T3 Debate</text>
+      <text x="518" y="202" fill="#64748b" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">A6..A9 Agents</text>
+      <path d="M 462,214 L 574,214" stroke="#cbd5e1" stroke-width="0.8"/>
+      <text x="518" y="230" fill="#16a34a" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Advocate Position</text>
+      <text x="518" y="246" fill="#dc2626" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Risk Challenger</text>
+      <text x="518" y="262" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Assessment Arbiter</text>
+      <text x="518" y="278" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Deal Structuring</text>
+
+      <!-- Stage 4 & 5 Box -->
+      <rect x="600" y="172" width="140" height="220" rx="4" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="670" y="188" fill="#0f172a" font-size="10" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">T4 Risk Committee</text>
+      <text x="670" y="202" fill="#64748b" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">A10..A13 Agents</text>
+      <path d="M 614,214 L 726,214" stroke="#cbd5e1" stroke-width="0.8"/>
+      <text x="670" y="230" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Business Risk</text>
+      <text x="670" y="246" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Conservative Risk</text>
+      <text x="670" y="262" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Governance Risk</text>
+      <text x="670" y="278" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Co-Approval Manager</text>
+
+      <!-- Shared State Engine Box -->
+      <rect x="752" y="172" width="154" height="220" rx="4" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+      <text x="829" y="188" fill="#0f172a" font-size="10" font-weight="700" font-family="'Geist', sans-serif" text-anchor="middle">CreditState v0->v14</text>
+      <text x="829" y="202" fill="#2563eb" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Shared State Engine</text>
+      <path d="M 764,214 L 894,214" stroke="#cbd5e1" stroke-width="0.8"/>
+      <text x="829" y="230" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Immutable Patching</text>
+      <text x="829" y="246" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• StatePatch Versioning</text>
+      <text x="829" y="262" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Stale Write Lock</text>
+      <text x="829" y="278" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• OWNERSHIP Matrix</text>
+
+      <!-- Bottom Bar: Deterministic Control Plane (FOCAL) -->
+      <rect x="280" y="424" width="640" height="76" rx="6" fill="#fff7ed" stroke="#eb6c36" stroke-width="1.5"/>
+      <rect x="292" y="432" width="48" height="14" rx="2" fill="#eb6c36"/>
+      <text x="316" y="442" fill="white" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">CONTROL</text>
+      <text x="600" y="452" fill="#0f172a" font-size="13" font-weight="700" font-family="'Geist', sans-serif" text-anchor="middle">Deterministic Approval Control Plane (Code 0-LLM)</text>
+      <text x="600" y="470" fill="#c2410c" font-size="10" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">Fail-Closed Enforcement · Hard Blocks on Policy Violations / Fraud Signals</text>
+      <text x="600" y="486" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Phê duyệt hoặc phong tỏa 100% bằng quy tắc xác định trong code</text>
+
+
+      <!-- RIGHT COLUMN: CONSUMERS & PERSISTENCE -->
+      <text x="976" y="32" fill="#0f172a" font-size="12" font-weight="700" font-family="'Geist', sans-serif">3. CONSUMERS & AUDIT</text>
+      <text x="976" y="46" fill="#64748b" font-size="9" font-family="'Geist Mono', monospace">DECISION & PERSISTENCE</text>
+
+      <!-- Consumer 1: Human Credit Committee (FOCAL) -->
+      <rect x="976" y="68" width="184" height="140" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+      <rect x="984" y="76" width="44" height="14" rx="2" fill="#2563eb"/>
+      <text x="1006" y="86" fill="white" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">LEGAL</text>
+      <text x="1068" y="100" fill="#0f172a" font-size="12" font-weight="700" font-family="'Geist', sans-serif" text-anchor="middle">Human Credit Panel</text>
+      <text x="1068" y="118" fill="#1d4ed8" font-size="9" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">Giám đốc Chi nhánh / HĐTD</text>
+      <text x="1068" y="136" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Form Ký số Phê duyệt</text>
+      <text x="1068" y="152" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Final Legal Authority</text>
+      <text x="1068" y="168" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Web UI / Quality Portal</text>
+
+      <!-- Consumer 2: SQLite / PostgreSQL Checkpoint Store -->
+      <rect x="976" y="228" width="184" height="140" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1"/>
+      <rect x="984" y="236" width="40" height="14" rx="2" fill="#f1f5f9"/>
+      <text x="1004" y="246" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">STORE</text>
+      <text x="1068" y="260" fill="#0f172a" font-size="12" font-weight="700" font-family="'Geist', sans-serif" text-anchor="middle">LocalDB Persistence</text>
+      <text x="1068" y="278" fill="#475569" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">credit_agent.db (SQLite/PG)</text>
+      <text x="1068" y="296" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• 14 Checkpoints SHA-256</text>
+      <text x="1068" y="312" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Credit Cases Revision</text>
+      <text x="1068" y="328" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Explainable Snapshot</text>
+
+      <!-- Consumer 3: Audit Trail & EWS -->
+      <rect x="976" y="388" width="184" height="128" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1"/>
+      <rect x="984" y="396" width="40" height="14" rx="2" fill="#f1f5f9"/>
+      <text x="1004" y="406" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">AUDIT</text>
+      <text x="1068" y="420" fill="#0f172a" font-size="12" font-weight="700" font-family="'Geist', sans-serif" text-anchor="middle">Audit Trail & EWS</text>
+      <text x="1068" y="438" fill="#475569" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">Audit Log & Early Warning</text>
+      <text x="1068" y="456" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Real-time Audit Events</text>
+      <text x="1068" y="472" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">• Compliance Reporting</text>
+
+
+      <!-- CONNECTORS & ROUTING -->
+      <!-- Sources to Platform Zone -->
+      <path d="M 216,98 L 264,98" stroke="#475569" stroke-width="1" marker-end="url(#arrow)"/>
+      <path d="M 216,186 L 264,186" stroke="#475569" stroke-width="1" marker-end="url(#arrow)"/>
+      <path d="M 216,274 L 264,274" stroke="#475569" stroke-width="1" marker-end="url(#arrow)"/>
+      <path d="M 216,362 L 264,362" stroke="#475569" stroke-width="1" marker-end="url(#arrow)"/>
+      <path d="M 216,450 L 264,450" stroke="#475569" stroke-width="1" marker-end="url(#arrow)"/>
+      <path d="M 216,538 L 264,538" stroke="#475569" stroke-width="1" marker-end="url(#arrow)"/>
+
+      <!-- Platform to Consumers -->
+      <!-- Control Plane -> Human Panel (Focal Accent) -->
+      <path d="M 920,462 C 948,462 956,462 956,462 C 956,462 956,138 956,138 L 976,138" fill="none" stroke="#eb6c36" stroke-width="1.5" marker-end="url(#arrow-accent)"/>
+      <rect x="940" y="280" width="36" height="12" rx="2" fill="#f8fafc"/>
+      <text x="958" y="289" fill="#eb6c36" font-size="7" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">VERIFY</text>
+
+      <!-- Shared State / Control -> Persistence -->
+      <path d="M 920,298 L 976,298" stroke="#475569" stroke-width="1" marker-end="url(#arrow)"/>
+
+      <!-- Control -> Audit Trail -->
+      <path d="M 920,480 L 976,480" stroke="#475569" stroke-width="1" marker-end="url(#arrow)"/>
+
+
+      <!-- FOOTER: ENTERPRISE SECURITY & IDENTITY STRIP -->
+      <rect x="40" y="600" width="1120" height="48" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+      <rect x="52" y="610" width="54" height="14" rx="2" fill="#475569"/>
+      <text x="79" y="620" fill="white" font-size="8" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">SECURITY</text>
+      <text x="600" y="620" fill="#0f172a" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Enterprise Identity, RBAC Matrix & Immutable Audit Trail (SHA-256)</text>
+      <text x="600" y="636" fill="#475569" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Quyền hạn truy cập theo role · Khóa bất biến 14 checkpoints · Mã hóa dữ liệu hồ sơ tín dụng</text>
+    </svg>
+  </div>
+
+  <div class="cards-grid">
+    <div class="card">
+      <div class="card-eyebrow">DURABLE EXECUTION</div>
+      <div class="card-header">
+        <span class="dot blue"></span>
+        <h3>Temporal.io Engine</h3>
+      </div>
+      <p>Điều phối toàn bộ vòng đời workflow thẩm định trên Task Queue <code>credit-approval-queue</code>, hỗ trợ khôi phục tự động (fault-tolerant) khi gặp sự cố mạng hoặc service crash.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-eyebrow">FAIL-CLOSED GATEWAY</div>
+      <div class="card-header">
+        <span class="dot coral"></span>
+        <h3>Deterministic 0-LLM Control</h3>
+      </div>
+      <p>Cổng kiểm soát an toàn tuyệt đối bằng lập trình xác định. Không cho phép LLM quyết định các hạn mức pháp lý, phong tỏa ngay lập tức nếu thiếu hồ sơ hoặc phát hiện dòng tiền vòng tròn.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-eyebrow">PERSISTENCE & AUDIT</div>
+      <div class="card-header">
+        <span class="dot green"></span>
+        <h3>LocalDB Checkpoint Store</h3>
+      </div>
+      <p>Lưu trữ 14 snapshot trạng thái Explainable State cùng mã băm SHA-256 vào SQLite <code>credit_agent.db</code> (tương thích 100% PostgreSQL Enterprise) cho mỗi lượt chạy workflow.</p>
+    </div>
+  </div>
+
+  <footer>
+    <span>CreditAgent Integration Topology</span>
+    <span>Generated with diagram-design editorial system</span>
+  </footer>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CreditAgent Architecture & Diagram Showcase</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f8fafc;
+      --paper-card: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --soft: #64748b;
+      --rule: rgba(15, 23, 42, 0.12);
+      --rule-solid: #cbd5e1;
+      --accent: #eb6c36;
+      --link: #2563eb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--paper);
+      color: var(--ink);
+      font-family: 'Geist', -apple-system, sans-serif;
+      padding: 24px;
+    }
+    .header {
+      max-width: 1240px;
+      margin: 0 auto 20px;
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 16px;
+    }
+    .eyebrow {
+      font-family: 'Geist Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--soft);
+      margin-bottom: 4px;
+    }
+    h1 {
+      font-family: 'Instrument Serif', serif;
+      font-size: 32px;
+      font-weight: 400;
+      margin-bottom: 6px;
+    }
+    .nav-tabs {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .tab-btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--rule-solid);
+      background: var(--paper-card);
+      color: var(--muted);
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .tab-btn:hover, .tab-btn.active {
+      background: var(--ink);
+      color: white;
+      border-color: var(--ink);
+    }
+    .view-container {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    iframe {
+      width: 100%;
+      height: 840px;
+      border: 1px solid var(--rule-solid);
+      border-radius: 8px;
+      background: white;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="eyebrow">CreditAgent Enterprise Visual Showcase</div>
+  <h1>Bộ Sơ Đồ Kiến Trúc Hệ Thống CreditAgent</h1>
+  <div class="nav-tabs">
+    <a href="architecture_diagram.html" target="diagram-frame" class="tab-btn active" onclick="setActive(this)">1. High-Level Architecture</a>
+    <a href="integration_architecture.html" target="diagram-frame" class="tab-btn" onclick="setActive(this)">2. Integration Architecture</a>
+    <a href="end_to_end_data_flow.html" target="diagram-frame" class="tab-btn" onclick="setActive(this)">3. End-to-End Data Flow</a>
+  </div>
+</div>
+
+<div class="view-container">
+  <iframe name="diagram-frame" src="architecture_diagram.html"></iframe>
+</div>
+
+<script>
+  function setActive(el) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    el.classList.add('active');
+  }
+</script>
+
+</body>
+</html>
