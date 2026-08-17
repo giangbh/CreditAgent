@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>End-to-End Data Flow Diagram - CreditAgent</title>
+  <style>
+    :root {
+      --bg-canvas: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card-header: #334155;
+      --border-color: #475569;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-green: #4ade80;
+      --accent-amber: #fbbf24;
+      --accent-purple: #c084fc;
+      --accent-rose: #f43f5e;
+      --navy-deep: #0284c7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: var(--bg-canvas);
+      color: var(--text-main);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+      padding: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+    }
+    .header h1 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      color: var(--accent-blue);
+      letter-spacing: -0.02em;
+    }
+    .header p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .badge-bar {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .chip {
+      background: #0369a1;
+      color: #e0f2fe;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    /* Grid Sections */
+    .flow-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--accent-amber);
+      margin: 0 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+    .grid-backends {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .backend-card {
+      background: #090d16;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .backend-card.b-blue { border-left: 4px solid var(--accent-blue); }
+    .backend-card.b-green { border-left: 4px solid var(--accent-green); }
+    .backend-card.b-purple { border-left: 4px solid var(--accent-purple); }
+    .backend-card.b-amber { border-left: 4px solid var(--accent-amber); }
+    .backend-card.b-rose { border-left: 4px solid var(--accent-rose); }
+
+    .backend-title {
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+    .backend-tools {
+      font-size: 11px;
+      color: var(--accent-blue);
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      margin-bottom: 6px;
+    }
+    .backend-data {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .arrow-large {
+      text-align: center;
+      font-size: 24px;
+      color: var(--accent-green);
+      margin: 12px 0;
+    }
+
+    /* Pipeline Rows */
+    .pipeline-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .pipeline-stage {
+      background: #090d16;
+      border: 1px dashed var(--border-color);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .stage-label {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--accent-purple);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .nodes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+    }
+    .node-card {
+      background: #1e293b;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px;
+    }
+    .node-card.n-green { border-top: 3px solid var(--accent-green); }
+    .node-card.n-amber { border-top: 3px solid var(--accent-amber); }
+    .node-card.n-rose { border-top: 3px solid var(--accent-rose); }
+    .node-card.n-blue { border-top: 3px solid var(--accent-blue); }
+
+    .node-code {
+      font-size: 11px;
+      font-weight: 900;
+      color: var(--accent-blue);
+    }
+    .node-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 2px 0;
+    }
+    .node-patch {
+      font-size: 11px;
+      color: var(--accent-green);
+      font-family: ui-monospace, monospace;
+      margin-top: 4px;
+    }
+
+    .table-custom {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 12px;
+    }
+    .table-custom th, .table-custom td {
+      border: 1px solid var(--border-color);
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .table-custom th {
+      background: var(--bg-card-header);
+      color: var(--accent-blue);
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>End-to-End Data Flow Architecture</h1>
+    <p>Sơ Đồ Luồng Dữ Liệu Toàn Bộ Hành Trình: Backend Systems → 13 Agent Pipeline → State Checkpoints → Human Decision</p>
+    <div class="badge-bar">
+      <span class="chip">25 Backend Tools</span>
+      <span class="chip">6 Core Systems</span>
+      <span class="chip">13 State Versions</span>
+      <span class="chip">Fail-Closed Control</span>
+      <span class="chip">SHA-256 Audit Seal</span>
+    </div>
+  </div>
+
+  <!-- Layer 1: Backend Systems & 25 Tools -->
+  <div class="flow-section">
+    <div class="section-title">🏦 Lớp 1: Hệ Thống Backend Ngân Hàng & 25 Tools Trích Xuất Dữ Liệu</div>
+    <div class="grid-backends">
+      <div class="backend-card b-blue">
+        <div class="backend-title">1. DMS / OCR Engine</div>
+        <div class="backend-tools">extract_financial_statements<br>extract_bank_statements<br>parse_tax_records</div>
+        <div class="backend-data">BCTC 3 năm, Sao kê tài khoản 12 tháng, MST & chứng từ pháp lý.</div>
+      </div>
+      <div class="backend-card b-green">
+        <div class="backend-title">2. Core Banking / CIF</div>
+        <div class="backend-tools">fetch_borrower_profile<br>query_credit_history<br>lookup_collateral</div>
+        <div class="backend-data">Hồ sơ CIF, điểm tín dụng CIC, tài sản đảm bảo & lịch sử nợ.</div>
+      </div>
+      <div class="backend-card b-rose">
+        <div class="backend-title">3. Graph DB / Neo4j</div>
+        <div class="backend-tools">detect_circular_funds<br>analyze_transaction_graph</div>
+        <div class="backend-data">Đồ thị dòng tiền vòng tròn (&ge; 0.8), cụm đối tác ảo.</div>
+      </div>
+      <div class="backend-card b-amber">
+        <div class="backend-title">4. Financial Spreading</div>
+        <div class="backend-tools">calculate_dscr<br>compute_debt_service<br>stress_test_cashflow</div>
+        <div class="backend-data">Chỉ số DSCR (&lt; 1.2 trigger), đòn bẩy tài chính & kịch bản rủi ro.</div>
+      </div>
+      <div class="backend-card b-purple">
+        <div class="backend-title">5. Policy BRE / RAG</div>
+        <div class="backend-tools">query_credit_policy<br>check_regulatory_limits</div>
+        <div class="backend-data">Hạn mức ngành, điều kiện chính sách tín dụng SME.</div>
+      </div>
+      <div class="backend-card b-blue">
+        <div class="backend-title">6. LOS & Pricing Engine</div>
+        <div class="backend-tools">generate_loan_structure<br>calculate_risk_rate</div>
+        <div class="backend-data">Cấu trúc khoản vay, tenor, biểu lãi suất theo rủi ro.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-large">⬇️ Dữ liệu trích xuất nạp vào Shared State Container (CreditState)</div>
+
+  <!-- Layer 2: 13 Agent Data Pipeline -->
+  <div class="flow-section">
+    <div class="section-title">🤖 Lớp 2: Luồng Dữ Liệu Chuyển Giao Giữa 13 AI Agents (5 Stages Pipeline)</div>
+    
+    <div class="pipeline-container">
+      
+      <!-- Stage 1 -->
+      <div class="pipeline-stage">
+        <div class="stage-label">Stage 1: Evidence Production (A1 &rarr; Fan-out [A2, A3, A4] &rarr; Join Barrier &rarr; A5)</div>
+        <div class="nodes-grid">
+          <div class="node-card n-blue">
+            <div class="node-code">A1 INTAKE</div>
+            <div class="node-title">Nạp hồ sơ & CIF</div>
+            <div class="node-patch">+ raw_documents, evidence_checklist (State v1)</div>
+          </div>
+          <div class="node-card n-green">
+            <div class="node-code">A2 CASHFLOW (Parallel)</div>
+            <div class="node-title">Phân tích sao kê</div>
+            <div class="node-patch">+ cashflow_analysis (State v2)</div>
+          </div>
+          <div class="node-card n-rose">
+            <div class="node-code">A3 INTEGRITY (Parallel)</div>
+            <div class="node-title">Quét tiền vòng tròn</div>
+            <div class="node-patch">+ circular_funds_score (State v3)</div>
+          </div>
+          <div class="node-card n-green">
+            <div class="node-code">A4 CAPACITY (Parallel)</div>
+            <div class="node-title">Tính DSCR & BCTC</div>
+            <div class="node-patch">+ dscr_metrics (State v4)</div>
+          </div>
+          <div class="node-card n-amber">
+            <div class="node-code">A5 POLICY (Join)</div>
+            <div class="node-title">Kiểm tra chính sách</div>
+            <div class="node-patch">+ policy_check_results (State v6)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 2 & 3 -->
+      <div class="pipeline-stage">
+        <div class="stage-label">Stage 2 & 3: Credit Challenge (A6, A7, A8) & Deal Structuring (A9)</div>
+        <div class="nodes-grid">
+          <div class="node-card n-green">
+            <div class="node-code">A6 ADVOCATE</div>
+            <div class="node-title">Lập luận tích cực</div>
+            <div class="node-patch">+ advocate_position (State v7)</div>
+          </div>
+          <div class="node-card n-rose">
+            <div class="node-code">A7 CHALLENGER</div>
+            <div class="node-title">Phản biện rủi ro</div>
+            <div class="node-patch">+ challenger_counterpoints (State v8)</div>
+          </div>
+          <div class="node-card n-purple">
+            <div class="node-code">A8 ASSESSMENT</div>
+            <div class="node-title">Tổng hợp thẩm định</div>
+            <div class="node-patch">+ assessment_summary (State v9)</div>
+          </div>
+          <div class="node-card n-blue">
+            <div class="node-code">A9 STRUCTURING</div>
+            <div class="node-title">Thiết kế hạn mức & lãi</div>
+            <div class="node-patch">+ proposed_facility (State v10)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 4 & 5 -->
+      <div class="pipeline-stage">
+        <div class="stage-label">Stage 4 & 5: Risk Committee (A10, A11, A12) & Advisory Opinion (A13)</div>
+        <div class="nodes-grid">
+          <div class="node-card n-amber">
+            <div class="node-code">A10 BUSINESS RISK</div>
+            <div class="node-title">Góc nhìn kinh doanh</div>
+            <div class="node-patch">+ business_risk_opinion (State v11)</div>
+          </div>
+          <div class="node-card n-amber">
+            <div class="node-code">A11 CONSERVATIVE</div>
+            <div class="node-title">Góc nhìn thận trọng</div>
+            <div class="node-patch">+ conservative_opinion (State v12)</div>
+          </div>
+          <div class="node-card n-amber">
+            <div class="node-code">A12 NEUTRAL RISK</div>
+            <div class="node-title">Góc nhìn trung lập</div>
+            <div class="node-patch">+ neutral_opinion (State v13)</div>
+          </div>
+          <div class="node-card n-purple">
+            <div class="node-code">A13 CO-APPROVAL</div>
+            <div class="node-title">Xuất bản thảo Opinion</div>
+            <div class="node-patch">+ CoApprovalOpinion DRAFT (State v14)</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="arrow-large">⬇️ Dữ liệu chuyển giao sang Lớp Kiểm Soát & Phê Duyệt Con Người</div>
+
+  <!-- Layer 3: Control, Persistence & Human Authority -->
+  <div class="flow-section">
+    <div class="section-title">👨‍⚖️ Lớp 3: Deterministic Approval Control, LocalDB Persistence & Human Decision</div>
+    <div class="grid-backends">
+      <div class="backend-card b-rose">
+        <div class="backend-title">Approval Control Engine</div>
+        <div class="backend-data">Khóa an toàn 0-LLM tự động quét DSCR &lt; 1.2, circular funds &ge; 0.8. Đưa ra <code>control.status</code>: READY / REJECT / ESCALATED.</div>
+      </div>
+      <div class="backend-card b-blue">
+        <div class="backend-title">SQLite credit_agent.db</div>
+        <div class="backend-data">Lưu trữ 14 State Checkpoints kèm SHA-256 state_hash và bảng <code>human_decisions</code>.</div>
+      </div>
+      <div class="backend-card b-green">
+        <div class="backend-title">Human Final Decision Panel</div>
+        <div class="backend-data">Form Ký duyệt con người (`AGREE_WITH_AI` / `OVERRIDE_AI`), Lời giải trình chi tiết & Tạo mã băm chữ ký số SHA-256.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

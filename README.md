@@ -160,6 +160,8 @@ Hệ thống bao gồm **79 unit tests tự động** kiểm tra toàn diện:
 8. **[08. Thiết Kế Hạ Tầng & Quy Hoạch Năng Lực (Sizing Guide) Enterprise](docs/08_thiet_ke_ha_tang_va_sizing_enterprise.md):** Quy hoạch tài nguyên máy chủ, tính toán Peak TPS (10.000 hồ sơ/ngày), Sizing K8s Workers, Temporal Cluster, PostgreSQL DB & Private LLM (NVIDIA A100/H100).
 9. **[09. Sổ Tay Kỹ Thuật & Tổng Hợp Giải Pháp Kiến Trúc (Living Technical Playbook)](docs/09_tong_hop_trao_doi_ky_thuat_va_giai_phap_kien_truc.md):** Tổng hợp 10 chuyên đề kỹ thuật chuyên sâu, quyết định thiết kế kiến trúc (ADR), bài toán tải, xử lý OCR/IDP chống timeout và hệ thống Audit Traceability.
 10. **[10. Luồng Thực Thi Temporal.io Workflow (Mermaid Sequence & Flowchart)](docs/10_luong_thuc_thi_temporal_workflow.md):** Sơ đồ Mermaid sequence & flowchart chi tiết luồng thực thi Temporal.io (Client, Server, Task Queue, Worker, Workflow, Activity & LocalDB).
-11. **[Architecture Flow Diagram (Interactive HTML)](docs/architecture_diagram.html):** Sơ đồ tương tác toàn bộ 6 tầng kiến trúc hệ thống CreditAgent.
-12. **[Temporal.io Workflow Diagram (Interactive HTML)](docs/temporal_workflow_diagram.html):** Sơ đồ HTML quy trình 6 bước thực thi luồng Temporal.io Durable Execution.
-13. Xem thêm [kiến trúc Multi-Agent đồng phê duyệt tín dụng](kien-truc-multi-agent-dong-phe-duyet-tin-dung.md) gốc.
+11. **[11. Sơ Đồ & Luồng Dữ Liệu Toàn Bộ Hành Trình](docs/11_luong_du_lieu_toan_bo_hanh_trinh.md):** Luồng dữ liệu End-to-End từ 6 hệ thống Backend, 25 Tools, luồng chuyển giao 13 Agent Pipeline (State v1 - v14), Deterministic Control Plane và Human Final Authority.
+12. **[Architecture Flow Diagram (Interactive HTML)](docs/architecture_diagram.html):** Sơ đồ tương tác toàn bộ 6 tầng kiến trúc hệ thống CreditAgent.
+13. **[Temporal.io Workflow Diagram (Interactive HTML)](docs/temporal_workflow_diagram.html):** Sơ đồ HTML quy trình 6 bước thực thi luồng Temporal.io Durable Execution.
+14. **[End-to-End Data Flow Diagram (Interactive HTML)](docs/end_to_end_data_flow.html):** Sơ đồ HTML tương tác luồng dữ liệu 3 lớp (Backend Systems & 25 Tools, 13 Agent Data Pipeline & Human Authority).
+15. Xem thêm [kiến trúc Multi-Agent đồng phê duyệt tín dụng](kien-truc-multi-agent-dong-phe-duyet-tin-dung.md) gốc.
