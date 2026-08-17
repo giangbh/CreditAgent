@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CreditAgent Architecture Flow Diagram</title>
+  <style>
+    :root {
+      --bg-canvas: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card-header: #334155;
+      --border-color: #475569;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-green: #4ade80;
+      --accent-amber: #fbbf24;
+      --accent-purple: #c084fc;
+      --accent-rose: #f43f5e;
+      --navy-deep: #0284c7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: var(--bg-canvas);
+      color: var(--text-main);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+    }
+    .header h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      color: var(--accent-blue);
+      letter-spacing: -0.02em;
+    }
+    .header p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .badge-bar {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .chip {
+      background: #0369a1;
+      color: #e0f2fe;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .diagram-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    .layer-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+    }
+    .layer-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--accent-amber);
+      margin: 0 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+    .nodes-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: stretch;
+    }
+    .node-box {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 14px;
+      flex: 1;
+      min-width: 180px;
+      position: relative;
+    }
+    .node-box.accent-blue { border-top: 4px solid var(--accent-blue); }
+    .node-box.accent-green { border-top: 4px solid var(--accent-green); }
+    .node-box.accent-amber { border-top: 4px solid var(--accent-amber); }
+    .node-box.accent-purple { border-top: 4px solid var(--accent-purple); }
+    .node-box.accent-rose { border-top: 4px solid var(--accent-rose); }
+
+    .node-id {
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--accent-blue);
+      text-transform: uppercase;
+    }
+    .node-name {
+      font-size: 14px;
+      font-weight: 700;
+      margin: 4px 0;
+      color: var(--text-main);
+    }
+    .node-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .arrow-down {
+      text-align: center;
+      margin: 12px 0;
+      color: var(--accent-blue);
+      font-size: 20px;
+      font-weight: 900;
+    }
+    .pipeline-stages {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .stage-row {
+      background: #0f172a;
+      border: 1px dashed var(--border-color);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .stage-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--accent-purple);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .parallel-nodes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      background: rgba(2, 132, 199, 0.1);
+      border: 1px solid rgba(2, 132, 199, 0.3);
+      border-radius: 6px;
+      padding: 12px;
+    }
+    .table-custom {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 12px;
+    }
+    .table-custom th, .table-custom td {
+      border: 1px solid var(--border-color);
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .table-custom th {
+      background: var(--bg-card-header);
+      color: var(--accent-blue);
+    }
+    .footer {
+      text-align: center;
+      margin-top: 32px;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>CreditAgent Architecture Flow Diagram</h1>
+    <p>Kiến trúc Luồng Điều Phối Multi-Agent Đồng Phê Duyệt Tín Dụng SME (Fail-Closed Governance)</p>
+    <div class="badge-bar">
+      <span class="chip">13 Logical Agents</span>
+      <span class="chip">Temporal.io Engine</span>
+      <span class="chip">SQLite localDB</span>
+      <span class="chip">Deterministic Control Plane</span>
+      <span class="chip">Human Final Authority</span>
+    </div>
+  </div>
+
+  <div class="diagram-grid">
+
+    <!-- Layer 1: Client & Interface -->
+    <div class="layer-card">
+      <div class="layer-title">🌐 Tầng 1: Giao Diện Người Dùng & Entrypoints (Interface Layer)</div>
+      <div class="nodes-row">
+        <div class="node-box accent-blue">
+          <div class="node-id">WEB REVIEW UI</div>
+          <div class="node-name">Web Review Server (Port 8080)</div>
+          <div class="node-desc">Giao diện Dashboard theo dõi 13 Nodes, Checkpoints timeline & Form ký duyệt con người.</div>
+        </div>
+        <div class="node-box accent-blue">
+          <div class="node-id">CLI ORCHESTRATOR</div>
+          <div class="node-name">CLI Command Runner</div>
+          <div class="node-desc">Thực thi kịch bản tín dụng qua cờ `run` và `run-all` với `--engine temporal-cluster`.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-down">⬇️ (gửi yêu cầu thực thi workflow)</div>
+
+    <!-- Layer 2: Orchestration Engine -->
+    <div class="layer-card">
+      <div class="layer-title">⚡ Tầng 2: Động Cơ Điều Phối Bền Vững (Temporal.io Orchestration Engine)</div>
+      <div class="nodes-row">
+        <div class="node-box accent-amber">
+          <div class="node-id">TEMPORAL SERVER</div>
+          <div class="node-name">Temporal Cluster (Port 7233 / UI 8233)</div>
+          <div class="node-desc">Quản lý trạng thái Durable Execution, Event History & Task Queue `credit-approval-queue`.</div>
+        </div>
+        <div class="node-box accent-amber">
+          <div class="node-id">TEMPORAL WORKER</div>
+          <div class="node-name">Worker Process</div>
+          <div class="node-desc">Lắng nghe Task Queue, thực thi Activity `execute_agent_activity` với Retry Policy.</div>
+        </div>
+        <div class="node-box accent-amber">
+          <div class="node-id">WORKFLOW DAG</div>
+          <div class="node-name">CreditCoApprovalWorkflow</div>
+          <div class="node-desc">Định nghĩa luồng thực thi 13 Agent, quản lý Fan-out Parallel Barrier & State accumulation.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-down">⬇️ (thực thi chuỗi 13 AI Agents)</div>
+
+    <!-- Layer 3: 13 Agents Pipeline -->
+    <div class="layer-card">
+      <div class="layer-title">🤖 Tầng 3: Chuỗi 13 Logical AI Agents (5 Stage Pipeline)</div>
+      <div class="pipeline-stages">
+        
+        <!-- Stage 1 -->
+        <div class="stage-row">
+          <div class="stage-name">Stage 1: Evidence Production Team</div>
+          <div class="nodes-row">
+            <div class="node-box accent-green">
+              <div class="node-id">A1</div>
+              <div class="node-name">Intake & Evidence</div>
+              <div class="node-desc">Tiếp nhận chứng từ & kiểm tra độ đầy đủ.</div>
+            </div>
+            <div class="parallel-nodes" style="flex: 3;">
+              <div class="node-box accent-green">
+                <div class="node-id">A2 (Fan-out)</div>
+                <div class="node-name">Cashflow Analyst</div>
+                <div class="node-desc">Phân tích dòng tiền sao kê.</div>
+              </div>
+              <div class="node-box accent-rose">
+                <div class="node-id">A3 (Fan-out)</div>
+                <div class="node-name">Transaction Integrity</div>
+                <div class="node-desc">Quét rủi ro dòng tiền vòng tròn.</div>
+              </div>
+              <div class="node-box accent-green">
+                <div class="node-id">A4 (Fan-out)</div>
+                <div class="node-name">Financial Capacity</div>
+                <div class="node-desc">Đánh giá DSCR & BCTC.</div>
+              </div>
+            </div>
+            <div class="node-box accent-green">
+              <div class="node-id">A5 (Join Barrier)</div>
+              <div class="node-name">Policy Compliance</div>
+              <div class="node-desc">Rà soát tuân thủ thể chế.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 2 -->
+        <div class="stage-row">
+          <div class="stage-name">Stage 2: Credit Challenge & Assessment</div>
+          <div class="nodes-row">
+            <div class="node-box accent-green">
+              <div class="node-id">A6</div>
+              <div class="node-name">Credit Advocate</div>
+              <div class="node-desc">Lập luận ủng hộ vay.</div>
+            </div>
+            <div class="node-box accent-rose">
+              <div class="node-id">A7</div>
+              <div class="node-name">Risk Challenger</div>
+              <div class="node-desc">Lập luận phản biện rủi ro.</div>
+            </div>
+            <div class="node-box accent-purple">
+              <div class="node-id">A8</div>
+              <div class="node-name">Assessment Manager</div>
+              <div class="node-desc">Trọng tài tổng hợp thẩm định.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage 3 & 4 -->
+        <div class="stage-row">
+          <div class="stage-name">Stage 3 & 4: Deal Structuring & Risk Committee</div>
+          <div class="nodes-row">
+            <div class="node-box accent-blue">
+              <div class="node-id">A9</div>
+              <div class="node-name">Deal Structuring</div>
+              <div class="node-desc">Thiết kế cấu trúc khoản vay.</div>
+            </div>
+            <div class="node-box accent-purple">
+              <div class="node-id">A10 - A12</div>
+              <div class="node-name">Risk Debate Trio</div>
+              <div class="node-desc">Business, Conservative & Neutral Risk Agents.</div>
+            </div>
+            <div class="node-box accent-purple">
+              <div class="node-id">A13</div>
+              <div class="node-name">Co-Approval Manager</div>
+              <div class="node-desc">Xuất bản thảo Co-Approval Opinion (DRAFT).</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="arrow-down">⬇️ (chuyển sang lớp kiểm soát an toàn cứng)</div>
+
+    <!-- Layer 4: Approval Control -->
+    <div class="layer-card">
+      <div class="layer-title">🛡️ Tầng 4: Lớp Kiểm Soát Phê Duyệt Xác Định (Deterministic Approval Control Plane)</div>
+      <div class="nodes-row">
+        <div class="node-box accent-rose" style="flex: 2;">
+          <div class="node-id">CONTROL PLANE (FAIL-CLOSED ENGINE)</div>
+          <div class="node-name">Deterministic Code Hard-Rules Gate</div>
+          <div class="node-desc">
+            Không dùng LLM. Kiểm tra lỗi hệ thống, rủi ro dòng tiền vòng tròn (circular funds >= 0.8), vi phạm tenor, DSCR < 1.2.
+            Tự động khóa khoản vay và gắn nhãn trạng thái: <code>READY_FOR_HUMAN_REVIEW</code> / <code>HUMAN_REVIEW_RECOMMENDED_REJECT</code> / <code>ESCALATED_FOR_HUMAN_REVIEW</code>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-down">⬇️ (trình Cán bộ có thẩm quyền)</div>
+
+    <!-- Layer 5: Human Decision -->
+    <div class="layer-card">
+      <div class="layer-title">👨‍⚖️ Tầng 5: Luồng Quyết Định Con Người & Đánh Giá Cán Bộ (Human Final Authority System)</div>
+      <div class="nodes-row">
+        <div class="node-box accent-green">
+          <div class="node-id">HUMAN DECISION PANEL</div>
+          <div class="node-name">Quyết Định Cán Bộ Phê Duyệt</div>
+          <div class="node-desc">Lựa chọn `AGREE_WITH_AI` hoặc `OVERRIDE_AI` (bắt buộc nhập lý do giải trình).</div>
+        </div>
+        <div class="node-box accent-green">
+          <div class="node-id">DIGITAL SIGNATURE</div>
+          <div class="node-name">Mã Băm Chữ Ký Số SHA-256</div>
+          <div class="node-desc">Tạo mã băm chữ ký số bảo mật ghi nhận danh tính `user_id` và chống sửa đổi.</div>
+        </div>
+        <div class="node-box accent-amber">
+          <div class="node-id">QUALITY ANALYTICS</div>
+          <div class="node-name">Approver Quality Dashboard</div>
+          <div class="node-desc">Thống kê Tỷ lệ Override AI (%), Tỷ lệ Chấp nhận (%) và Chỉ số Tuân thủ Quality Index.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Layer 6: Persistence & Backends -->
+    <div class="layer-card">
+      <div class="layer-title">🗄️ Tầng 6: Cơ Sở Dữ Liệu LocalDB & Integration Backends</div>
+      <div class="nodes-row">
+        <div class="node-box accent-blue" style="flex: 1;">
+          <div class="node-id">SQLITE LOCALDB</div>
+          <div class="node-name">credit_agent.db (StateRepository)</div>
+          <div class="node-desc">
+            Lưu trữ 4 bảng chuẩn tương thích PostgreSQL:<br>
+            • <code>credit_cases</code><br>
+            • <code>state_checkpoints</code> (14 SHA-256 checkpoints)<br>
+            • <code>audit_events</code><br>
+            • <code>human_decisions</code>
+          </div>
+        </div>
+        <div class="node-box accent-blue" style="flex: 1;">
+          <div class="node-id">TOOL GATEWAY</div>
+          <div class="node-name">25 Backend Tools Mapping</div>
+          <div class="node-desc">
+            Kết nối tới 6 hệ thống Core Ngân hàng:<br>
+            • DMS / OCR (Tài liệu, BCTC, Sao kê)<br>
+            • Core Banking / CBS (CIF, Lịch sử giao dịch)<br>
+            • Graph DB (Neo4j - Đồ thị dòng tiền)<br>
+            • Financial Engine (BCTC, DSCR, Stress-test)<br>
+            • Policy BRE / RAG (Quy chế tín dụng)<br>
+            • LOS & Pricing Engine (Cấu trúc khoản vay)
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <p>CreditAgent POC - Built with Python, Temporal.io, SQLite3 & Vanilla HTML/CSS Design System</p>
+  </div>
+
+</div>
+
+</body>
+</html>
