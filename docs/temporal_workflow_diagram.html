@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Temporal.io Flow Diagram - CreditAgent</title>
+  <style>
+    :root {
+      --bg-canvas: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card-header: #334155;
+      --border-color: #475569;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-green: #4ade80;
+      --accent-amber: #fbbf24;
+      --accent-purple: #c084fc;
+      --accent-rose: #f43f5e;
+      --temporal-color: #10b981;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: var(--bg-canvas);
+      color: var(--text-main);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+      padding: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+    }
+    .header h1 {
+      margin: 0 0 8px;
+      font-size: 26px;
+      color: var(--accent-green);
+      letter-spacing: -0.02em;
+    }
+    .header p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .chip-bar {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .chip {
+      background: #064e3b;
+      color: #a7f3d0;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    /* Sequence Diagram Layout */
+    .seq-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .seq-col-header {
+      background: var(--bg-card-header);
+      color: var(--text-main);
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      font-weight: 800;
+      font-size: 13px;
+      border: 1px solid var(--border-color);
+    }
+    .seq-col-header.col-client { border-top: 4px solid var(--accent-blue); }
+    .seq-col-header.col-server { border-top: 4px solid var(--accent-amber); }
+    .seq-col-header.col-worker { border-top: 4px solid var(--accent-purple); }
+    .seq-col-header.col-workflow { border-top: 4px solid var(--accent-green); }
+    .seq-col-header.col-activity { border-top: 4px solid var(--accent-rose); }
+
+    /* Flow Step Card */
+    .flow-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 18px;
+      margin-bottom: 18px;
+      position: relative;
+    }
+    .step-number {
+      display: inline-block;
+      background: var(--navy-deep, #0284c7);
+      color: white;
+      font-weight: 900;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .flow-card h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: var(--accent-blue);
+    }
+    .flow-card p {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .code-snippet {
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: #38bdf8;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .arrow-flow {
+      text-align: center;
+      font-size: 22px;
+      margin: 8px 0;
+      color: var(--accent-green);
+    }
+    .table-custom {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 12px;
+    }
+    .table-custom th, .table-custom td {
+      border: 1px solid var(--border-color);
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .table-custom th {
+      background: var(--bg-card-header);
+      color: var(--accent-amber);
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>Temporal.io Flow Architecture in CreditAgent</h1>
+    <p>Luồng Điều Phối Durable Execution, Dynamic Task Queues & Activity Retry trong Dự Án</p>
+    <div class="chip-bar">
+      <span class="chip">Task Queue: credit-approval-queue</span>
+      <span class="chip">Server: 127.0.0.1:7233</span>
+      <span class="chip">Web UI: http://127.0.0.1:8233</span>
+      <span class="chip">@workflow.defn</span>
+      <span class="chip">@activity.defn</span>
+    </div>
+  </div>
+
+  <!-- Actors Column Bar -->
+  <div class="seq-grid">
+    <div class="seq-col-header col-client">1. Client / Orchestrator</div>
+    <div class="seq-col-header col-server">2. Temporal Server (7233)</div>
+    <div class="seq-col-header col-worker">3. Temporal Worker Process</div>
+    <div class="seq-col-header col-workflow">4. Workflow Definition</div>
+    <div class="seq-col-header col-activity">5. Activity Execution</div>
+  </div>
+
+  <!-- Detailed Flow Steps -->
+
+  <!-- Step 1 -->
+  <div class="flow-card">
+    <span class="step-number">BƯỚC 1</span>
+    <h3 style="color: var(--accent-blue);">Khởi tạo & Đăng ký Workflow từ Client (CLI / Orchestrator)</h3>
+    <p>
+      Người dùng thực thi câu lệnh CLI hoặc trigger từ Web UI. <code>CreditOrchestrator</code> nhận yêu cầu và gọi <code>TemporalWorkflowEngine.execute_native_temporal_cluster(scenario_id)</code>.
+      Temporal Client kết nối tới Temporal Server Cluster tại <code>127.0.0.1:7233</code> và đăng ký một Workflow Execution ID duy nhất.
+    </p>
+    <div class="code-snippet">client = await Client.connect("127.0.0.1:7233")
+handle = await client.start_workflow(
+    CreditCoApprovalWorkflow.run,
+    scenario_id,
+    id=f"credit-workflow-{scenario_id}-{uuid.uuid4().hex[:8]}",
+    task_queue="credit-approval-queue",
+)</div>
+  </div>
+
+  <div class="arrow-flow">⬇️ (gửi Workflow Task vào Queue)</div>
+
+  <!-- Step 2 -->
+  <div class="flow-card">
+    <span class="step-number">BƯỚC 2</span>
+    <h3 style="color: var(--accent-amber);">Temporal Server Tiếp nhận & Đưa vào Task Queue</h3>
+    <p>
+      Temporal Server ghi nhận Workflow Run ID, lưu trữ trạng thái khởi tạo trong Event History và đưa Workflow Task vào Task Queue <code>credit-approval-queue</code>.
+      Mọi sự kiện được theo dõi trực quan tại <strong>Temporal Web UI (http://127.0.0.1:8233)</strong>.
+    </p>
+  </div>
+
+  <div class="arrow-flow">⬇️ (Worker Lắng nghe & Polling Task)</div>
+
+  <!-- Step 3 -->
+  <div class="flow-card">
+    <span class="step-number">BƯỚC 3</span>
+    <h3 style="color: var(--accent-purple);">Temporal Worker Process Nhận Task & Kích Hoạt Workflow</h3>
+    <p>
+      Tiến trình <code>Worker</code> đang chạy background (cmd: <code>python3 -m credit_agent_poc worker</code>) poll lấy Task từ <code>credit-approval-queue</code> và khởi chạy hàm <code>CreditCoApprovalWorkflow.run(scenario_id)</code>.
+    </p>
+    <div class="code-snippet">worker = Worker(
+    client,
+    task_queue="credit-approval-queue",
+    workflows=[CreditCoApprovalWorkflow],
+    activities=[execute_agent_activity],
+)
+await worker.run()</div>
+  </div>
+
+  <div class="arrow-flow">⬇️ (Workflow Điều phối Luồng 13 Node)</div>
+
+  <!-- Step 4 -->
+  <div class="flow-card">
+    <span class="step-number">BƯỚC 4</span>
+    <h3 style="color: var(--accent-green);">Workflow Điều Phối Luồng 13 Agent (Sequential & Parallel Fan-out)</h3>
+    <p>
+      Hàm <code>@workflow.run</code> thực thi chuỗi 13 Agent qua <code>workflow.execute_activity()</code> kèm <code>schedule_to_close_timeout=timedelta(seconds=30)</code>:
+    </p>
+    <ul>
+      <li><strong>Bước 4.1 (A1 Intake):</strong> Chạy Activity A1, nhận về <code>updated_state</code> làm <code>current_state</code> ban đầu.</li>
+      <li><strong>Bước 4.2 (Fan-out Barrier):</strong> Chạy <strong>song song 3 Activities A2, A3, A4</strong> bằng <code>asyncio.gather()</code> trên cùng snapshot <code>current_state</code>. Sau đó gộp kết quả <code>analyst_reports</code> và <code>audit</code> vào <code>current_state</code>.</li>
+      <li><strong>Bước 4.3 (Tuần tự A5 -> A13):</strong> Lặp tuần tự từ A5 đến A13, sau mỗi Activity sẽ cập nhật <code>current_state</code> cho bước tiếp theo.</li>
+    </ul>
+    <div class="code-snippet"># Step 1: A1 Intake
+a1_res = await workflow.execute_activity(execute_agent_activity, args=["A1", {}, scenario_id], schedule_to_close_timeout=timedelta(seconds=30))
+current_state = a1_res.get("updated_state", {})
+
+# Step 2: Parallel Fan-out A2, A3, A4
+a2_task = workflow.execute_activity(execute_agent_activity, args=["A2", current_state, scenario_id], schedule_to_close_timeout=timedelta(seconds=30))
+a3_task = workflow.execute_activity(execute_agent_activity, args=["A3", current_state, scenario_id], schedule_to_close_timeout=timedelta(seconds=30))
+a4_task = workflow.execute_activity(execute_agent_activity, args=["A4", current_state, scenario_id], schedule_to_close_timeout=timedelta(seconds=30))
+a2_res, a3_res, a4_res = await asyncio.gather(a2_task, a3_task, a4_task)
+
+# Merge branch reports
+for branch_res in (a2_res, a3_res, a4_res):
+    branch_state = branch_res.get("updated_state", {})
+    if "analyst_reports" in branch_state:
+        current_state.setdefault("analyst_reports", {}).update(branch_state["analyst_reports"])
+
+# Step 3: Sequential A5 .. A13
+for node in ["A5", "A6", "A7", "A8", "A9", "A10", "A11", "A12", "A13"]:
+    node_res = await workflow.execute_activity(execute_agent_activity, args=[node, current_state, scenario_id], schedule_to_close_timeout=timedelta(seconds=30))
+    current_state = node_res.get("updated_state", current_state)</div>
+  </div>
+
+  <div class="arrow-flow">⬇️ (Mỗi Activity thực thi Logic Agent)</div>
+
+  <!-- Step 5 -->
+  <div class="flow-card">
+    <span class="step-number">BƯỚC 5</span>
+    <h3 style="color: var(--accent-rose);">Activity Execution: Tái Tạo State & Áp Dụng StatePatch</h3>
+    <p>
+      Hàm <code>@activity.defn(name="execute_agent_node")</code> nhận <code>node_id</code>, <code>state_dict</code> và <code>scenario_id</code>:
+      1. Tái tạo <code>CreditState(**state_dict)</code>.
+      2. Chạy <code>AgentRuntime(ScenarioModel(), ToolGateway()).run(node_id, state, scenario)</code>.
+      3. Áp dụng toàn bộ <code>execution.patches</code> vào <code>state</code> bằng <code>apply_patch()</code>.
+      4. Trả về <code>updated_state</code> snapshot mới nhất về cho Workflow.
+    </p>
+    <div class="code-snippet">@activity.defn(name="execute_agent_node")
+async def execute_agent_activity(node_id: str, state_dict: Dict[str, Any], scenario_id: str) -> Dict[str, Any]:
+    scenario = SCENARIOS[scenario_id]
+    state = CreditState(**state_dict) if state_dict else CreditState(...)
+    runtime = AgentRuntime(ScenarioModel(), ToolGateway())
+    execution = runtime.run(node_id, state, scenario)
+    for patch in execution.patches:
+        apply_patch(state, replace(patch, base_state_version=state.state_version))
+    return {
+        "node_id": execution.node_id,
+        "patches": [...],
+        "updated_state": state.public_snapshot()
+    }</div>
+  </div>
+
+  <div class="arrow-flow">⬇️ (Ghi nhận Checkpoints & Kết thúc Workflow)</div>
+
+  <!-- Step 6 -->
+  <div class="flow-card">
+    <span class="step-number">BƯỚC 6</span>
+    <h3 style="color: var(--accent-blue);">Persistence Checkpoints & Trả Kết Quả Cho Client</h3>
+    <p>
+      Sau khi 13 Agent hoàn thành, <code>TemporalWorkflowEngine</code> ghi nhận 14 State Checkpoints & Audit Events vào cơ sở dữ liệu SQLite localDB (<code>credit_agent.db</code>), đồng thời hoàn tất Workflow Execution trên Temporal Server với trạng thái <code>Completed</code>.
+    </p>
+  </div>
+
+  <!-- Table Summary -->
+  <div class="flow-card">
+    <h3>Tóm Tắt Các Thành Phần Temporal Trong Dự Án</h3>
+    <table class="table-custom">
+      <thead>
+        <tr>
+          <th>Thành phần</th>
+          <th>Tên / Giá trị trong Codebase</th>
+          <th>Vai trò & Chức năng</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Task Queue</strong></td>
+          <td><code>credit-approval-queue</code></td>
+          <td>Hàng đợi công việc chứa các Workflow & Activity Tasks.</td>
+        </tr>
+        <tr>
+          <td><strong>Workflow Class</strong></td>
+          <td><code>CreditCoApprovalWorkflow</code></td>
+          <td>Định nghĩa luồng DAG 13 Agent, quản lý Fan-out barrier & State accumulation.</td>
+        </tr>
+        <tr>
+          <td><strong>Activity Function</strong></td>
+          <td><code>execute_agent_activity</code></td>
+          <td>Đóng gói execution của 1 Node Agent, áp dụng StatePatch & trả về snapshot.</td>
+        </tr>
+        <tr>
+          <td><strong>Temporal Server</strong></td>
+          <td><code>127.0.0.1:7233</code> (UI: <code>8233</code>)</td>
+          <td>Cụm server theo dõi Event History, Durable Execution & Retry.</td>
+        </tr>
+        <tr>
+          <td><strong>Temporal Worker</strong></td>
+          <td><code>python3 -m credit_agent_poc worker</code></td>
+          <td>Tiến trình background lắng nghe và thực thi tasks.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+</body>
+</html>
