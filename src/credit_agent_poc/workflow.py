@@ -742,10 +742,289 @@ class TemporalWorkflowEngine:
         self.repository.save_case(state)
         return state, checkpoints, duration_ms
 
+    def execute_workflow_in_memory(
+        self, scenario_id: str, observer: Optional[Callable[[dict[str, Any]], None]] = None
+    ) -> Tuple[CreditState, list[dict[str, Any]], int]:
+        started = time.perf_counter()
+        run_id = f"run-{uuid.uuid4().hex[:8]}"
+        scenario = SCENARIOS[scenario_id]
+        state = CreditState(case_id=f"CASE-{scenario_id.upper()}", scenario_id=scenario_id, run_id=run_id)
+
+        for node_id in PIPELINE:
+            if observer:
+                try:
+                    observer({"event": "NODE_STARTED", "node_id": node_id})
+                except Exception:
+                    pass
+            if self.step_delay_ms > 0:
+                time.sleep(self.step_delay_ms / 1000.0)
+
+            try:
+                execution = self.runtime.run(node_id, state, scenario)
+                input_version = state.state_version
+                for patch in execution.patches:
+                    apply_patch(state, replace(patch, base_state_version=state.state_version))
+
+                state.node_history.append(
+                    {
+                        "node_id": execution.node_id,
+                        "agent_name": execution.agent_name,
+                        "model": execution.model_name,
+                        "status": "COMPLETED",
+                        "input_state_version": input_version,
+                        "output_state_version": state.state_version,
+                        "prompt_hash": hashlib.sha256(execution.prompt.encode()).hexdigest(),
+                        "system_and_role_prompt": execution.prompt,
+                        "input_context": copy.deepcopy(execution.context),
+                        "output": copy.deepcopy(execution.output),
+                        "written_paths": [patch.path for patch in execution.patches],
+                    }
+                )
+                evt = AuditEvent(
+                    event="agent_node_completed",
+                    node_id=execution.node_id,
+                    details={"written_paths": [patch.path for patch in execution.patches]},
+                )
+                state.audit.append(evt)
+            except Exception as exc:
+                error_msg = str(exc)
+                input_version = state.state_version
+                written_paths = []
+                if node_id == "A1":
+                    state.data_quality = {"status": "DEGRADED_TIMEOUT", "critical_gap": True, "error": error_msg}
+                    written_paths = ["data_quality"]
+                elif node_id == "A2":
+                    state.analyst_reports.setdefault("cashflow", {})
+                    state.analyst_reports["cashflow"] = {
+                        "status": "DEGRADED_TIMEOUT",
+                        "error_detail": error_msg,
+                        "node_id": "A2",
+                        "rating": "FAIL",
+                        "debt_service_coverage": 0.0,
+                    }
+                    written_paths = ["analyst_reports.cashflow"]
+                elif node_id == "A3":
+                    state.analyst_reports.setdefault("transaction_integrity", {})
+                    state.analyst_reports["transaction_integrity"] = {
+                        "status": "DEGRADED_TIMEOUT",
+                        "error_detail": error_msg,
+                        "node_id": "A3",
+                        "rating": "CRITICAL",
+                        "flags": ["TIMEOUT_AML_CHECK_INCOMPLETE"],
+                    }
+                    written_paths = ["analyst_reports.transaction_integrity"]
+                elif node_id == "A4":
+                    state.analyst_reports.setdefault("financial_capacity", {})
+                    state.analyst_reports["financial_capacity"] = {
+                        "status": "DEGRADED_TIMEOUT",
+                        "error_detail": error_msg,
+                        "node_id": "A4",
+                        "primary_repayment_viable": False,
+                        "rating": "FAIL",
+                        "dscr": 0.0,
+                    }
+                    written_paths = ["analyst_reports.financial_capacity"]
+                elif node_id == "A5":
+                    state.analyst_reports.setdefault("policy", {})
+                    state.analyst_reports["policy"] = {
+                        "status": "DEGRADED_TIMEOUT",
+                        "escalation_required": True,
+                        "error": error_msg,
+                        "rating": "ESCALATE",
+                    }
+                    written_paths = ["analyst_reports.policy"]
+                elif node_id in ("A6", "A7"):
+                    state.credit_debate.append({"speaker": node_id, "status": "DEGRADED_TIMEOUT", "summary": f"{node_id} timed out: {error_msg}"})
+                    written_paths = ["credit_debate"]
+                elif node_id == "A8":
+                    state.credit_assessment = {
+                        "status": "DEGRADED_TIMEOUT",
+                        "assessment_summary": f"Incomplete due to {node_id} timeout: {error_msg}",
+                        "overall_rating": "HIGH_RISK",
+                    }
+                    written_paths = ["credit_assessment"]
+                elif node_id == "A9":
+                    state.deal_proposal = {
+                        "status": "DEGRADED_TIMEOUT",
+                        "action": "BLOCKED",
+                        "proposed_limit": 0,
+                        "error": error_msg,
+                    }
+                    written_paths = ["deal_proposal"]
+                elif node_id in ("A10", "A11", "A12"):
+                    state.risk_debate.append({"speaker": node_id, "status": "DEGRADED_TIMEOUT", "summary": f"{node_id} timed out: {error_msg}"})
+                    written_paths = ["risk_debate"]
+                elif node_id == "A13":
+                    state.coapproval_opinion = {
+                        "decision": "REJECT_INSUFFICIENT_EVIDENCE",
+                        "status": "DRAFT",
+                        "error": f"{node_id} timed out: {error_msg}",
+                    }
+                    written_paths = ["coapproval_opinion"]
+
+                state.node_history.append(
+                    {
+                        "node_id": node_id,
+                        "agent_name": AGENT_NAMES.get(node_id, node_id),
+                        "model": "FallbackDegradedEngine",
+                        "status": "DEGRADED_TIMEOUT",
+                        "input_state_version": input_version,
+                        "output_state_version": state.state_version,
+                        "prompt_hash": "timeout_error",
+                        "system_and_role_prompt": "DEGRADED_TIMEOUT",
+                        "input_context": {},
+                        "output": {"error": error_msg},
+                        "written_paths": written_paths,
+                    }
+                )
+                evt = AuditEvent(
+                    event="agent_execution_degraded",
+                    node_id=node_id,
+                    details={"error": error_msg, "written_paths": written_paths},
+                )
+                state.audit.append(evt)
+
+            if observer:
+                try:
+                    observer({"event": "NODE_COMPLETED", "node_id": node_id})
+                except Exception:
+                    pass
+
+        # Control gate evaluation
+        if observer:
+            try:
+                observer({"event": "NODE_STARTED", "node_id": "CONTROL"})
+            except Exception:
+                pass
+            if self.step_delay_ms > 0:
+                time.sleep(self.step_delay_ms / 1000.0)
+
+        opinion = state.coapproval_opinion or {}
+        reports = state.analyst_reports or {}
+        blocked_reasons: list[str] = []
+        if state.data_quality.get("critical_gap") or state.data_quality.get("status") == "DEGRADED_TIMEOUT":
+            blocked_reasons.append("CRITICAL_DATA_GAP")
+        if reports.get("cashflow", {}).get("status") in ("PARTIAL", "DEGRADED_TIMEOUT"):
+            blocked_reasons.append("CASHFLOW_TOOL_OR_COVERAGE_GAP")
+        if not reports.get("financial_capacity", {}).get("primary_repayment_viable") or reports.get("financial_capacity", {}).get("status") == "DEGRADED_TIMEOUT":
+            blocked_reasons.append("PRIMARY_REPAYMENT_NOT_VIABLE")
+        if reports.get("transaction_integrity", {}).get("rating") == "CRITICAL" or reports.get("transaction_integrity", {}).get("status") == "DEGRADED_TIMEOUT":
+            blocked_reasons.append("MATERIAL_TRANSACTION_INTEGRITY_RISK")
+        if reports.get("policy", {}).get("escalation_required") or reports.get("policy", {}).get("status") == "DEGRADED_TIMEOUT":
+            blocked_reasons.append("MANDATORY_POLICY_ESCALATION")
+
+        decision = opinion.get("decision", "REJECT_INSUFFICIENT_EVIDENCE")
+        invalid_opinion = decision == "APPROVE_WITH_CONDITIONS" and (
+            bool(blocked_reasons) or state.deal_proposal.get("action") != "PROPOSE"
+        )
+        if invalid_opinion:
+            status = "BLOCKED_INVALID_OPINION"
+        elif decision == "APPROVE_WITH_CONDITIONS":
+            status = "READY_FOR_HUMAN_REVIEW"
+        elif decision == "ESCALATE_TO_CRO_RISK":
+            status = "ESCALATED_FOR_HUMAN_REVIEW"
+        else:
+            status = "HUMAN_REVIEW_RECOMMENDED_REJECT"
+
+        control = {
+            "status": status,
+            "opinion_validated": not invalid_opinion,
+            "blocked_reasons": blocked_reasons,
+            "allowed_actions": ["VIEW_EVIDENCE", "HUMAN_REVIEW"],
+            "ai_can_approve": False,
+            "ai_can_disburse": False,
+        }
+        apply_patch(
+            state,
+            StatePatch(
+                node_id="CONTROL",
+                path="control",
+                value=control,
+                base_state_version=state.state_version,
+            ),
+        )
+        evt = AuditEvent(
+            event="approval_control_evaluated",
+            node_id="CONTROL",
+            details={"status": status, "blocked_reasons": blocked_reasons},
+        )
+        state.audit.append(evt)
+
+        if observer:
+            try:
+                observer({"event": "NODE_COMPLETED", "node_id": "CONTROL"})
+            except Exception:
+                pass
+
+        duration_ms = round((time.perf_counter() - started) * 1000)
+
+        # Build Checkpoints
+        checkpoints: list[dict[str, Any]] = []
+        node_map = {n["node_id"]: n for n in state.node_history}
+        running_state = CreditState(case_id=state.case_id, scenario_id=state.scenario_id, run_id=state.run_id)
+
+        for idx, node_id in enumerate(PIPELINE, start=1):
+            nh = node_map.get(node_id, {})
+            agent_name = nh.get("agent_name", AGENT_NAMES.get(node_id, node_id))
+            changed_paths = nh.get("written_paths", [node_id.lower()])
+
+            if node_id == "A1":
+                running_state.case_file = state.case_file
+                running_state.evidence_catalog = state.evidence_catalog
+                running_state.data_quality = state.data_quality
+            elif node_id in ("A2", "A3", "A4", "A5"):
+                report_key_map = {"A2": "cashflow", "A3": "transaction_integrity", "A4": "financial_capacity", "A5": "policy"}
+                k = report_key_map[node_id]
+                if k in state.analyst_reports:
+                    running_state.analyst_reports[k] = state.analyst_reports[k]
+            elif node_id in ("A6", "A7"):
+                running_state.credit_debate = [d for d in state.credit_debate if d.get("speaker") in ("A6", "A7", "CREDIT_ADVOCATE", "RISK_CHALLENGER")]
+            elif node_id == "A8":
+                running_state.credit_assessment = state.credit_assessment
+            elif node_id == "A9":
+                running_state.deal_proposal = state.deal_proposal
+            elif node_id in ("A10", "A11", "A12"):
+                running_state.risk_debate = [d for d in state.risk_debate if d.get("speaker") in ("A10", "A11", "A12", "UPSIDE_RISK_MANAGER", "CONSERVATIVE_RISK_MANAGER", "NEUTRAL_RISK_MANAGER")]
+            elif node_id == "A13":
+                running_state.coapproval_opinion = state.coapproval_opinion
+
+            running_state.state_version = idx
+            cp = {
+                "checkpoint_id": f"CP-{idx:02d}",
+                "after_node": node_id,
+                "agent_name": agent_name,
+                "state_version": idx,
+                "state_hash": hashlib.sha256(f"{node_id}-{idx}".encode()).hexdigest(),
+                "changed_paths": changed_paths,
+                "state_snapshot": running_state.explainable_snapshot(),
+            }
+            checkpoints.append(cp)
+            self.repository.save_checkpoint(state.run_id, cp)
+
+        running_state.control = state.control
+        running_state.state_version = 14
+        ctrl_cp = {
+            "checkpoint_id": "CP-14",
+            "after_node": "CONTROL",
+            "agent_name": "Deterministic Approval Control",
+            "state_version": 14,
+            "state_hash": hashlib.sha256(repr(state.control).encode()).hexdigest(),
+            "changed_paths": ["control"],
+            "state_snapshot": running_state.explainable_snapshot(),
+        }
+        checkpoints.append(ctrl_cp)
+        self.repository.save_checkpoint(state.run_id, ctrl_cp)
+        self.repository.save_case(state)
+
+        return state, checkpoints, duration_ms
+
     def execute_workflow(
         self, scenario_id: str, observer: Optional[Callable[[dict[str, Any]], None]] = None
     ) -> Tuple[CreditState, list[dict[str, Any]], int]:
-        """Synchronous wrapper for execute_workflow_async running on Temporal Server."""
+        """Synchronous wrapper for execute_workflow_async running on Temporal Server with fallback."""
+        if not is_temporal_cluster_alive(self.target_host):
+            return self.execute_workflow_in_memory(scenario_id, observer)
+
         global _ACTIVE_OBSERVER, _ACTIVE_STEP_DELAY_MS
         _ACTIVE_OBSERVER = observer
         _ACTIVE_STEP_DELAY_MS = self.step_delay_ms
@@ -759,6 +1038,8 @@ class TemporalWorkflowEngine:
                     state, checkpoints, duration_ms = loop.run_until_complete(self.execute_workflow_async(scenario_id))
                 finally:
                     loop.close()
+        except Exception:
+            return self.execute_workflow_in_memory(scenario_id, observer)
         finally:
             _ACTIVE_OBSERVER = None
             _ACTIVE_STEP_DELAY_MS = 0

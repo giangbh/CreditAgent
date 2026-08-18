@@ -13,6 +13,7 @@ from .db import StateRepository
 from .logger import audit_log
 from .orchestrator import CreditOrchestrator
 from .scenarios import SCENARIOS, scenario_catalog
+from .tools.simulated.mock_server import MockBackendServiceHandler
 
 
 def is_temporal_cluster_alive(host: Optional[str] = None, port: Optional[int] = None) -> bool:
@@ -54,6 +55,11 @@ class POCRequestHandler(BaseHTTPRequestHandler):
         parsed_url = urlparse(self.path)
         path = parsed_url.path
         query = parse_qs(parsed_url.query)
+
+        if path.startswith("/api/v1/"):
+            status_code, response_data = MockBackendServiceHandler.handle_request(path, method="GET")
+            self._json(response_data, HTTPStatus(status_code))
+            return
 
         if path == "/api/scenarios":
             self._json(scenario_catalog())
@@ -124,6 +130,17 @@ class POCRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        if path.startswith("/api/v1/"):
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+            try:
+                data = json.loads(body) if body else {}
+            except ValueError:
+                data = {}
+            status_code, response_data = MockBackendServiceHandler.handle_request(path, method="POST", body_dict=data)
+            self._json(response_data, HTTPStatus(status_code))
+            return
+
         if path == "/api/human-decision":
             content_length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(content_length) if content_length > 0 else b"{}"
