@@ -161,7 +161,10 @@ Hệ thống bao gồm **79 unit tests tự động** kiểm tra toàn diện:
 9. **[09. Sổ Tay Kỹ Thuật & Tổng Hợp Giải Pháp Kiến Trúc (Living Technical Playbook)](docs/09_tong_hop_trao_doi_ky_thuat_va_giai_phap_kien_truc.md):** Tổng hợp 10 chuyên đề kỹ thuật chuyên sâu, quyết định thiết kế kiến trúc (ADR), bài toán tải, xử lý OCR/IDP chống timeout và hệ thống Audit Traceability.
 10. **[10. Luồng Thực Thi Temporal.io Workflow (Mermaid Sequence & Flowchart)](docs/10_luong_thuc_thi_temporal_workflow.md):** Sơ đồ Mermaid sequence & flowchart chi tiết luồng thực thi Temporal.io (Client, Server, Task Queue, Worker, Workflow, Activity & LocalDB).
 11. **[11. Sơ Đồ & Luồng Dữ Liệu Toàn Bộ Hành Trình](docs/11_luong_du_lieu_toan_bo_hanh_trinh.md):** Luồng dữ liệu End-to-End từ 6 hệ thống Backend, 25 Tools, luồng chuyển giao 13 Agent Pipeline (State v1 - v14), Deterministic Control Plane và Human Final Authority.
-12. **[Architecture Flow Diagram (Interactive HTML)](docs/architecture_diagram.html):** Sơ đồ tương tác toàn bộ 6 tầng kiến trúc hệ thống CreditAgent.
-13. **[Temporal.io Workflow Diagram (Interactive HTML)](docs/temporal_workflow_diagram.html):** Sơ đồ HTML quy trình 6 bước thực thi luồng Temporal.io Durable Execution.
-14. **[End-to-End Data Flow Diagram (Interactive HTML)](docs/end_to_end_data_flow.html):** Sơ đồ HTML tương tác luồng dữ liệu 3 lớp (Backend Systems & 25 Tools, 13 Agent Data Pipeline & Human Authority).
-15. Xem thêm [kiến trúc Multi-Agent đồng phê duyệt tín dụng](kien-truc-multi-agent-dong-phe-duyet-tin-dung.md) gốc.
+12. **[12. Định Hướng Kỹ Thuật Chuyển Đổi POC Sang Production](docs/12_tai_lieu_dinh_huong_ky_thuat_chuyen_doi_poc_sang_production.md):** Tài liệu định hướng kỹ thuật toàn diện: khắc phục Temporal History Bloat, PostgreSQL State Diffing, LLM Gateway PII Redaction, OIDC SSO và Lộ trình 3 giai đoạn (P1, P2, P3).
+13. **[Architecture Flow Diagram (Interactive HTML)](docs/architecture_diagram.html):** Sơ đồ tương tác toàn bộ kiến trúc hệ thống CreditAgent chuẩn editorial diagram-design.
+14. **[Integration Architecture Diagram (Interactive HTML)](docs/integration_architecture.html):** Sơ đồ tích hợp Hub-and-Spoke 6 hệ thống Backend, 25 Tools, Temporal Engine và Cổng Phê duyệt.
+15. **[End-to-End Data Flow Diagram (Interactive HTML)](docs/end_to_end_data_flow.html):** Sơ đồ HTML tương tác luồng dữ liệu 3 lớp (Backend Systems & 25 Tools, 13 Agent Data Pipeline & Human Authority).
+16. **[Master Diagram Showcase (Interactive Portal)](docs/index_diagrams.html):** Cổng tổng hợp chuyển đổi trực quan giữa 3 sơ đồ kiến trúc.
+17. Xem thêm [kiến trúc Multi-Agent đồng phê duyệt tín dụng](kien-truc-multi-agent-dong-phe-duyet-tin-dung.md) gốc.
+
