@@ -116,10 +116,7 @@
         <div style="margin-bottom:12px;">
           <label style="font-size:11px; font-weight:800; color:var(--muted); display:block; margin-bottom:4px;" data-i18n="engine_label">Backend Execution Engine</label>
           <select id="engine-select" style="width:100%; padding:6px 8px; font-size:12px; border:1px solid var(--line-strong); background:white;">
-            <option value="auto" data-i18n="engine_auto">⚡ Auto-Detect (Temporal Cluster / SDK)</option>
-            <option value="temporal-cluster" data-i18n="engine_cluster">🚀 Temporal Server Cluster (127.0.0.1:7233)</option>
-            <option value="temporal" data-i18n="engine_sdk">🔄 Temporal.io SDK (In-Memory Engine)</option>
-            <option value="legacy" data-i18n="engine_legacy">🛠️ Mock / Local Engine (Python Threads)</option>
+            <option value="temporal" data-i18n="engine_temporal">🚀 Native Temporal Server (127.0.0.1:7233)</option>
           </select>
         </div>
         <div class="scenario-list" id="scenarios"></div>
@@ -148,14 +145,11 @@
         authority_chip: "THẨM QUYỀN CUỐI CỦA CON NGƯỜI",
         sidebar_title: "Kịch bản kiểm thử",
         engine_label: "Backend Execution Engine",
-        engine_auto: "⚡ Tự động phát hiện (Temporal Cluster / SDK)",
-        engine_cluster: "🚀 Temporal Server Cluster (127.0.0.1:7233)",
-        engine_sdk: "🔄 Temporal.io SDK (Engine trong bộ nhớ)",
-        engine_legacy: "🛠️ Động cơ Giả lập / Cục bộ (Python Threads)",
+        engine_temporal: "🚀 Temporal Server Nguyên Bản (127.0.0.1:7233)",
         run_btn: "Chạy workflow",
         select_scenario_h2: "Chọn một kịch bản",
         select_scenario_p: "Workflow canvas sẽ hiển thị luồng tuần tự, song song và hai vòng phản biện.",
-        backend_engine: "Backend Execution Engine",
+        backend_engine: "Động cơ Thực thi Backend",
         open_temporal_ui: "[Mở Temporal Web UI Port 8233 ↗]",
         orchestration_h2: "Điều phối Tác nhân (Agent Orchestration)",
         orchestration_p: "Đọc từ trên xuống. Mỗi stage thể hiện đúng dependency và execution mode.",
@@ -224,10 +218,7 @@
         authority_chip: "HUMAN FINAL AUTHORITY",
         sidebar_title: "Test Scenarios",
         engine_label: "Backend Execution Engine",
-        engine_auto: "⚡ Auto-Detect (Temporal Cluster / SDK)",
-        engine_cluster: "🚀 Temporal Server Cluster (127.0.0.1:7233)",
-        engine_sdk: "🔄 Temporal.io SDK (In-Memory Engine)",
-        engine_legacy: "🛠️ Mock / Local Engine (Python Threads)",
+        engine_temporal: "🚀 Native Temporal Server (127.0.0.1:7233)",
         run_btn: "Run Workflow",
         select_scenario_h2: "Select a Scenario",
         select_scenario_p: "Workflow canvas will display sequential, parallel fan-out, and two debate rounds.",

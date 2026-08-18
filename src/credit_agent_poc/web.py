@@ -60,12 +60,11 @@ class POCRequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/engine-info":
             cluster_alive = is_temporal_cluster_alive()
-            active_engine = "temporal-cluster" if cluster_alive else "temporal"
             self._json({
                 "cluster_alive": cluster_alive,
-                "active_engine": active_engine,
-                "engine_label": f"Native Temporal Server Cluster ({CONFIG.TEMPORAL_TARGET_HOST})" if cluster_alive else "Temporal.io Workflow Engine (In-Memory Simulation)",
-                "temporal_ui_url": CONFIG.TEMPORAL_UI_URL if cluster_alive else None,
+                "active_engine": "temporal",
+                "engine_label": f"Native Temporal Server Cluster ({CONFIG.TEMPORAL_TARGET_HOST})" if cluster_alive else f"Native Temporal Server Engine ({CONFIG.TEMPORAL_TARGET_HOST})",
+                "temporal_ui_url": CONFIG.TEMPORAL_UI_URL,
             })
             return
         if path == "/api/health":
@@ -75,7 +74,7 @@ class POCRequestHandler(BaseHTTPRequestHandler):
                 "service": "credit-agent-poc",
                 "db": self.db_path,
                 "temporal_cluster_alive": cluster_alive,
-                "active_engine": "temporal-cluster" if cluster_alive else "temporal",
+                "active_engine": "temporal",
             })
             return
         status_prefix = "/api/run-status/"
@@ -152,20 +151,9 @@ class POCRequestHandler(BaseHTTPRequestHandler):
                 return
             
             cluster_alive = is_temporal_cluster_alive()
-            if not engine_param or engine_param == "auto":
-                effective_engine = "temporal-cluster" if cluster_alive else "temporal"
-            else:
-                effective_engine = engine_param
-
-            if effective_engine == "temporal-cluster":
-                engine_label = f"Native Temporal Server Cluster ({CONFIG.TEMPORAL_TARGET_HOST})"
-                temporal_ui_url = CONFIG.TEMPORAL_UI_URL
-            elif effective_engine == "legacy":
-                engine_label = "Legacy Python Orchestrator (Mock/In-Process)"
-                temporal_ui_url = None
-            else:
-                engine_label = "Temporal.io Workflow Engine (In-Memory Simulation)"
-                temporal_ui_url = None
+            effective_engine = "temporal"
+            engine_label = f"Native Temporal Server Cluster ({CONFIG.TEMPORAL_TARGET_HOST})" if cluster_alive else f"Native Temporal Server Engine ({CONFIG.TEMPORAL_TARGET_HOST})"
+            temporal_ui_url = CONFIG.TEMPORAL_UI_URL
 
             run_id = str(uuid.uuid4())
             with self.runs_lock:
@@ -176,10 +164,10 @@ class POCRequestHandler(BaseHTTPRequestHandler):
                     "active_nodes": [],
                     "events": [],
                     "engine_info": {
-                        "engine_type": effective_engine,
+                        "engine_type": "temporal",
                         "engine_label": engine_label,
-                        "is_temporal": effective_engine in ("temporal", "temporal-cluster"),
-                        "is_cluster": effective_engine == "temporal-cluster",
+                        "is_temporal": True,
+                        "is_cluster": cluster_alive,
                         "temporal_ui_url": temporal_ui_url,
                     },
                     "result": None,
@@ -239,6 +227,36 @@ class POCRequestHandler(BaseHTTPRequestHandler):
             audit_log("API_RUN_REQUEST_FAILED", "WEB_SERVER", trace_id, case_id, level="ERROR", details={"run_id": run_id, "error": str(exc)})
 
 
+def _start_background_temporal_worker(host: str = CONFIG.TEMPORAL_TARGET_HOST, task_queue: str = CONFIG.TEMPORAL_TASK_QUEUE) -> None:
+    """Khởi chạy Worker Temporal thường trực dưới nền khi Web Server chạy."""
+    def _worker_thread():
+        async def _run():
+            try:
+                from temporalio.client import Client
+                from temporalio.worker import Worker
+                from .workflow import TEMPORAL_WORKFLOWS, TEMPORAL_ACTIVITIES
+                
+                if is_temporal_cluster_alive(host):
+                    client = await Client.connect(host)
+                    worker = Worker(
+                        client,
+                        task_queue=task_queue,
+                        workflows=TEMPORAL_WORKFLOWS,
+                        activities=TEMPORAL_ACTIVITIES,
+                    )
+                    print(f"[*] Temporal Background Worker active and polling '{task_queue}' on {host}")
+                    await worker.run()
+            except Exception:
+                pass
+
+        try:
+            asyncio.run(_run())
+        except Exception:
+            pass
+
+    threading.Thread(target=_worker_thread, name="temporal-bg-worker", daemon=True).start()
+
+
 def serve(host: Optional[str] = None, port: Optional[int] = None, db_path: Optional[str] = None) -> None:
     target_host = host or CONFIG.WEB_HOST
     target_port = port or CONFIG.WEB_PORT
@@ -246,6 +264,7 @@ def serve(host: Optional[str] = None, port: Optional[int] = None, db_path: Optio
     POCRequestHandler.db_path = target_db
     server = ThreadingHTTPServer((target_host, target_port), POCRequestHandler)
     print(f"CreditAgent POC (localDB: {target_db}): http://{target_host}:{target_port}")
+    _start_background_temporal_worker()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

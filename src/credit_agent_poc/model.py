@@ -117,20 +117,21 @@ class ScenarioModel(ModelAdapter):
 
     @staticmethod
     def _a6(c: dict[str, Any]) -> dict[str, Any]:
-        financial = c["reports"]["financial_capacity"]
-        thesis = "supportable_with_controls" if financial["primary_repayment_viable"] else "not_currently_supportable"
+        financial = c["reports"].get("financial_capacity", {})
+        is_viable = financial.get("primary_repayment_viable", False)
+        thesis = "supportable_with_controls" if is_viable else "not_currently_supportable"
         strengths = [
             {
                 "factor": "PRIMARY_REPAYMENT",
                 "evidence": f"DSCR {financial.get('dscr', 0)}x, Stressed DSCR {financial.get('stressed_dscr', 0)}x",
                 "impact": "Core operating cashflow covers debt servicing obligation",
             }
-        ] if financial["primary_repayment_viable"] else []
+        ] if is_viable else []
         return {
             "speaker": "CREDIT_ADVOCATE",
             "claim_id": "CLAIM-ADV-1",
             "thesis": thesis,
-            "growth_rationale": "Viable debt repayment demonstrated via audited cashflow metrics." if financial["primary_repayment_viable"] else "Cashflow metrics insufficient for standalone debt service.",
+            "growth_rationale": "Viable debt repayment demonstrated via audited cashflow metrics." if is_viable else "Cashflow metrics insufficient for standalone debt service.",
             "strengths": strengths,
             "proposed_mitigants": [
                 "Require minimum 80% revenue turnover through bank account",
@@ -144,19 +145,19 @@ class ScenarioModel(ModelAdapter):
     def _a7(c: dict[str, Any]) -> dict[str, Any]:
         reports = c["reports"]
         challenges = []
-        if reports["cashflow"]["rating"] in {"CAUTION", "UNKNOWN"}:
+        if reports.get("cashflow", {}).get("rating") in {"CAUTION", "UNKNOWN", "FAIL"}:
             challenges.append("cashflow_quality_or_coverage")
-        if reports["transaction_integrity"]["rating"] == "CRITICAL":
+        if reports.get("transaction_integrity", {}).get("rating") == "CRITICAL":
             challenges.append("circular_funds_pattern")
-        if not reports["financial_capacity"]["primary_repayment_viable"]:
+        if not reports.get("financial_capacity", {}).get("primary_repayment_viable", False):
             challenges.append("weak_primary_repayment")
-        if reports["policy"]["escalation_required"]:
+        if reports.get("policy", {}).get("escalation_required", False):
             challenges.append("mandatory_policy_escalation")
         active_challenges = challenges or ["monitoring_conditions_must_be_enforceable"]
         downside_scenarios = [
             {
                 "scenario_type": "DOWNSIDE_STRESS_TEST",
-                "stressed_metric": f"Stressed DSCR {reports['financial_capacity'].get('stressed_dscr', 0)}x",
+                "stressed_metric": f"Stressed DSCR {reports.get('financial_capacity', {}).get('stressed_dscr', 0)}x",
                 "vulnerability": f"Cash flow vulnerability triggered by {', '.join(active_challenges)}",
             }
         ]
@@ -173,11 +174,11 @@ class ScenarioModel(ModelAdapter):
     @staticmethod
     def _a8(c: dict[str, Any]) -> dict[str, Any]:
         reports = c["reports"]
-        if reports["cashflow"]["status"] == "PARTIAL" or c["data_quality"].get("critical_gap"):
+        if reports.get("cashflow", {}).get("status") in ("PARTIAL", "DEGRADED_TIMEOUT") or c["data_quality"].get("critical_gap"):
             rating = "HOLD_FOR_INFO"
-        elif not reports["financial_capacity"]["primary_repayment_viable"]:
+        elif not reports.get("financial_capacity", {}).get("primary_repayment_viable", False):
             rating = "REJECT"
-        elif reports["transaction_integrity"]["rating"] == "CRITICAL" or reports["policy"]["escalation_required"]:
+        elif reports.get("transaction_integrity", {}).get("rating") == "CRITICAL" or reports.get("policy", {}).get("escalation_required", False):
             rating = "OVERWEIGHT_CAUTION"
         else:
             rating = "APPROVE"
