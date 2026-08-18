@@ -20,7 +20,7 @@ def is_temporal_cluster_alive(host: Optional[str] = None, port: Optional[int] = 
     target_host = host or CONFIG.TEMPORAL_HOST
     target_port = port or CONFIG.TEMPORAL_PORT
     try:
-        with socket.create_connection((target_host, target_port), timeout=0.2):
+        with socket.create_connection((target_host, target_port), timeout=1.5):
             return True
     except Exception:
         return False

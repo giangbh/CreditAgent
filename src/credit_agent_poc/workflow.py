@@ -29,7 +29,7 @@ from .tools import ToolGateway
 PIPELINE = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11", "A12", "A13"]
 
 
-def is_temporal_cluster_alive(host: str = CONFIG.TEMPORAL_TARGET_HOST, timeout_sec: float = 0.1) -> bool:
+def is_temporal_cluster_alive(host: str = CONFIG.TEMPORAL_TARGET_HOST, timeout_sec: float = 1.5) -> bool:
     """Kiểm tra nhanh xem Temporal Server cluster có đang lắng nghe cổng hay không."""
     try:
         parts = host.split(":")
@@ -656,37 +656,20 @@ class TemporalWorkflowEngine:
         run_uid = str(uuid.uuid4())[:8]
         workflow_id = f"credit-wf-{scenario_id}-{run_uid}"
 
-        cluster_online = is_temporal_cluster_alive(self.target_host)
-        if cluster_online:
-            client = await Client.connect(self.target_host)
-            async with Worker(
-                client,
+        client = await Client.connect(self.target_host)
+        async with Worker(
+            client,
+            task_queue=self.task_queue,
+            workflows=TEMPORAL_WORKFLOWS,
+            activities=TEMPORAL_ACTIVITIES,
+        ):
+            res = await client.execute_workflow(
+                CreditCoApprovalWorkflow.run,
+                scenario_id,
+                id=workflow_id,
                 task_queue=self.task_queue,
-                workflows=TEMPORAL_WORKFLOWS,
-                activities=TEMPORAL_ACTIVITIES,
-            ):
-                res = await client.execute_workflow(
-                    CreditCoApprovalWorkflow.run,
-                    scenario_id,
-                    id=workflow_id,
-                    task_queue=self.task_queue,
-                )
-                final_state_dict = res.get("final_state", {})
-        else:
-            async with await WorkflowEnvironment.start_time_skipping() as env:
-                async with Worker(
-                    env.client,
-                    task_queue=self.task_queue,
-                    workflows=TEMPORAL_WORKFLOWS,
-                    activities=TEMPORAL_ACTIVITIES,
-                ):
-                    res = await env.client.execute_workflow(
-                        CreditCoApprovalWorkflow.run,
-                        scenario_id,
-                        id=workflow_id,
-                        task_queue=self.task_queue,
-                    )
-                    final_state_dict = res.get("final_state", {})
+            )
+            final_state_dict = res.get("final_state", {})
 
         duration_ms = round((time.perf_counter() - started) * 1000)
 
