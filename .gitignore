@@ -11,4 +11,5 @@ demo-output/
 graphify-out/
 logs/
 *.log
+*.db
 
