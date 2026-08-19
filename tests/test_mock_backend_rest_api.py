@@ -9,7 +9,7 @@ from http.server import ThreadingHTTPServer
 from credit_agent_poc.models import CreditState, ToolExecutionError
 from credit_agent_poc.scenarios import SCENARIOS
 from credit_agent_poc.tools import ToolGateway
-from credit_agent_poc.tools.adapters.rest_backend_adapter import RESTBackendAdapter
+from credit_agent_poc.tools.adapters.mock import RESTBackendAdapter
 from credit_agent_poc.tools.simulated.mock_server import (
     MOCK_BACKEND_STATE,
     REST_TOOL_PATH_MAP,

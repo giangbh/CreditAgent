@@ -5,7 +5,7 @@ from credit_agent_poc.config import CONFIG
 from credit_agent_poc.scenarios import SCENARIOS
 from credit_agent_poc.models import ToolExecutionError
 from credit_agent_poc.tools import ToolGateway
-from credit_agent_poc.tools.adapters.production_adapters import (
+from credit_agent_poc.tools.adapters.production import (
     ProductionCoreBankingAdapter,
     ProductionIDPOCREngineAdapter,
     ProductionCICAdapter,

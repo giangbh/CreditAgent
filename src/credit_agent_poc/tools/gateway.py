@@ -42,8 +42,13 @@ class ToolGateway:
         circuit_breaker: Optional[CircuitBreaker] = None,
     ) -> None:
         if backend is None:
-            from .simulated.simulated_backend import SimulatedBackend
-            backend = SimulatedBackend()
+            from ..config import CONFIG
+            if getattr(CONFIG, "BACKEND_MODE", "MOCK").upper() == "PRODUCTION":
+                from .adapters.production import ProductionEnterpriseBackend
+                backend = ProductionEnterpriseBackend()
+            else:
+                from .simulated.simulated_backend import SimulatedBackend
+                backend = SimulatedBackend()
         self.backend = backend
         self.rate_limiter = RateLimiter(max_calls_per_second=max_calls_per_second)
         self.circuit_breaker = circuit_breaker or CircuitBreaker()
