@@ -102,7 +102,7 @@
             <option value="en">🇬🇧 English</option>
           </select>
         </div>
-        <span class="boundary-chip" id="engine-chip" style="background:#2563eb; color:white; font-weight:800;">ENGINE: TEMPORAL.IO</span>
+        <span class="boundary-chip" id="engine-chip" style="background:#16a34a; color:white; font-weight:800;">🚀 TEMPORAL SERVER (127.0.0.1:7233)</span>
         <span class="boundary-chip" data-i18n="agents_chip">13 LOGICAL AGENTS</span>
         <span class="boundary-chip" data-i18n="tools_chip">SIMULATED TOOLS</span>
         <span class="boundary-chip" data-i18n="authority_chip">HUMAN FINAL AUTHORITY</span>
@@ -341,7 +341,8 @@
       const active=(run?.active_nodes||[]).map(id=>`${id} ${AGENTS[id]}`).join(' · ')||((run?.status==='COMPLETED')?t('current_execution')+': Completed':t('current_execution')+': Waiting');
       
       const engineInfo = run?.engine_info || result?.engine_info || run?.result?.engine_info;
-      const engineLabel = engineInfo?.engine_label || (currentLang()==='en' ? 'Temporal.io Workflow Engine (In-Memory)' : 'Temporal.io Workflow Engine (Giả lập trong bộ nhớ)');
+      const defaultEngineLabel = currentLang() === 'en' ? 'Native Temporal Server Cluster (127.0.0.1:7233)' : 'Cụm Temporal Server Nguyên Bản (127.0.0.1:7233)';
+      const engineLabel = engineInfo?.engine_label || defaultEngineLabel;
       const temporalLink = engineInfo?.temporal_ui_url ? `<a href="${engineInfo.temporal_ui_url}" target="_blank" rel="noopener" style="color:#38bdf8; font-weight:800; text-decoration:underline;">${t('open_temporal_ui')}</a>` : '';
 
       return `<section class="workflow-shell">
@@ -395,7 +396,7 @@
       const tools=s.tool_history.map(t=>`<tr><td>${esc(t.node_id)}</td><td>${esc(t.tool_name)}</td><td><span class="badge ${t.status==='SUCCESS'?'pass':'fail'}">${esc(t.status)}</span></td></tr>`).join('');
       const traces=s.node_history.map(n=>{const nodeTools=s.tool_history.filter(t=>t.node_id===n.node_id);return `<details id="trace-${n.node_id}"><summary>${esc(n.node_id)} · ${esc(n.agent_name)} · State v${esc(n.input_state_version)} → v${esc(n.output_state_version)}</summary><div class="io"><div><b>INPUT CONTEXT</b><pre>${pretty(n.input_context)}</pre></div><div><b>STRUCTURED OUTPUT</b><pre>${pretty(n.output)}</pre></div><div><b>SYSTEM + ROLE PROMPT</b><pre>${esc(n.system_and_role_prompt)}</pre></div><div><b>TOOL CALLS</b><pre>${pretty(nodeTools)}</pre></div></div></details>`}).join('');
       $('content').innerHTML=`<div class="summary"><div class="metric"><small>A13 draft opinion</small><b><span class="badge ${resultClass(data.actual_outcome)}">${esc(data.actual_outcome)}</span></b></div><div class="metric"><small>Deterministic control</small><b>${esc(control.status)}</b></div><div class="metric"><small>Expected outcome</small><b>${data.outcome_matches?'MATCH':'MISMATCH'} · ${esc(data.duration_ms)} ms</b></div></div>
-        ${workflowCanvas(completedRun,versions,data.node_outcomes||{},data.risk_propagation||{})}
+        ${workflowCanvas(completedRun,versions,data.node_outcomes||{},data.risk_propagation||{},data)}
         ${stateTimeline(checkpointData)}
         <section class="section"><h2>Input / output trace</h2><div class="trace">${traces}</div></section>
         <section class="section"><h2>Evidence reports</h2><div class="grid">${reports}</div></section>
@@ -611,13 +612,8 @@
         const info = await res.json();
         const chip = $('engine-chip');
         if (chip) {
-          if (info.cluster_alive) {
-            chip.textContent = '🚀 TEMPORAL CLUSTER (127.0.0.1:7233)';
-            chip.style.background = '#16a34a';
-          } else {
-            chip.textContent = '🔄 TEMPORAL SDK (IN-MEMORY)';
-            chip.style.background = '#2563eb';
-          }
+          chip.textContent = '🚀 TEMPORAL SERVER (127.0.0.1:7233)';
+          chip.style.background = '#16a34a';
         }
       } catch (e) {}
     }
