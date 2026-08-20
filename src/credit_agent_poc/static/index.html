@@ -79,12 +79,21 @@
     .data-card { border:1px solid var(--line); padding:13px; overflow:auto }.data-card h3 { font-size:13px; margin:0 0 8px }.data-card pre { margin:0; color:#334155; white-space:pre-wrap; font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; max-height:260px; overflow:auto }
     .trace details { border:1px solid var(--line); margin:8px 0; background:white }.trace details[open] { border-color:#7caed6 }.trace summary { cursor:pointer; font-weight:800; padding:12px; background:#f8fafc }.trace details[open] summary { color:var(--blue); border-bottom:1px solid var(--line) }
     .io { display:grid; grid-template-columns:1fr 1fr; gap:0 }.io > div { padding:12px; min-width:0 }.io > div:nth-child(odd) { border-right:1px solid var(--line) }.io > div:nth-child(n+3) { border-top:1px solid var(--line) }.io b { font-size:10px; letter-spacing:.055em; color:var(--muted) }.io pre,.raw-json { background:#111827; color:#d1fae5; padding:12px; white-space:pre-wrap; max-height:380px; overflow:auto; font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace }
-    table { width:100%; border-collapse:collapse } th,td { border-bottom:1px solid var(--line); padding:7px; text-align:left } th { color:var(--muted); font-size:11px }
-    details.full-state { margin-top:20px }.full-state summary { cursor:pointer; font-weight:800 }
-    @keyframes pulse { 50% { opacity:.62 } }
-    @media (prefers-reduced-motion:reduce) { * { animation:none!important; transition:none!important } }
-    @media (max-width:1050px) { .layout { grid-template-columns:1fr }.sidebar { position:static }.scenario-list { display:grid; grid-template-columns:repeat(2,1fr); gap:8px }.scenario { margin:0 }.stage-body { min-width:760px }.workflow-head { align-items:flex-start }.live-state { text-align:left } }
-    @media (max-width:680px) { .topbar-inner { padding:18px; display:block }.system-boundary { justify-content:flex-start; margin-top:12px }.boundary-chip { font-size:9px } main { padding:14px }.content { padding:12px }.summary,.grid,.io,.state-view { grid-template-columns:1fr }.scenario-list { display:flex; gap:8px; overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:8px }.scenario { flex:0 0 280px; scroll-snap-align:start }.workflow-head,.state-toolbar { display:block }.live-state { margin-top:8px }.state-toolbar select { min-width:0; width:100% }.state-proof { text-align:left; margin-top:9px }.state-context { border-right:0; border-bottom:1px solid var(--line) }.workflow { padding:10px; overflow:visible }.stage-head,.stage-meta { align-items:flex-start; flex-direction:column }.stage-meta { gap:5px }.stage-body { min-width:0; flex-direction:column }.agent-node { width:100%; min-height:76px }.flow-arrow { transform:rotate(90deg); margin:10px; flex-basis:28px }.parallel-block,.debate-box { width:100%; max-width:none }.parallel-nodes { grid-template-columns:1fr }.parallel-nodes::before { display:none }.barrier { width:100%; height:48px; align-self:center }.barrier-line { height:22px }.debate-box { flex-direction:column }.debate-box .debate-label { writing-mode:horizontal-tb; transform:none }.io > div { border:0!important; border-top:1px solid var(--line)!important } }
+    .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.85); z-index:9999; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); padding:20px; }
+    .modal-card { background:#0f172a; color:#f8fafc; border:1px solid #334155; border-radius:14px; width:100%; max-width:1100px; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.7); overflow:hidden; }
+    .modal-header { padding:18px 24px; background:#1e293b; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center; }
+    .modal-body { padding:24px; overflow-y:auto; flex:1; font-size:13px; line-height:1.6; }
+    .modal-footer { padding:14px 24px; background:#1e293b; border-top:1px solid #334155; display:flex; justify-content:flex-end; gap:12px; }
+    .btn-action { padding:8px 16px; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer; border:1px solid transparent; }
+    .btn-primary { background:#0284c7; color:white; }
+    .btn-primary:hover { background:#0369a1; }
+    .btn-secondary { background:#334155; color:#f8fafc; }
+    .btn-secondary:hover { background:#475569; }
+    .badge-signal { display:inline-block; padding:3px 8px; border-radius:4px; font-weight:800; font-size:10px; }
+    .badge-GREEN { background:#065f46; color:#34d399; }
+    .badge-YELLOW { background:#78350f; color:#fbbf24; }
+    .badge-RED { background:#7f1d1d; color:#f87171; }
+    .badge-PURPLE { background:#581c87; color:#c084fc; }
   </style>
 </head>
 <body>
@@ -112,7 +121,12 @@
   <main>
     <div class="layout">
       <aside class="panel sidebar">
-        <h2 data-i18n="sidebar_title">Kịch bản kiểm thử</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h2 style="margin:0;" data-i18n="sidebar_title">Kịch bản kiểm thử</h2>
+          <button id="btn-random-scenario" class="run-button" style="margin:0; padding:4px 10px; font-size:11px; background:#7c3aed; color:white; border-radius:5px; font-weight:800; cursor:pointer;" onclick="generateRandomScenario()" title="Sinh ngẫu nhiên một hồ sơ tín dụng doanh nghiệp mới">
+            🎲 Random Case
+          </button>
+        </div>
         <div style="margin-bottom:12px;">
           <label style="font-size:11px; font-weight:800; color:var(--muted); display:block; margin-bottom:4px;" data-i18n="engine_label">Backend Execution Engine</label>
           <select id="engine-select" style="width:100%; padding:6px 8px; font-size:12px; border:1px solid var(--line-strong); background:white;">
@@ -364,10 +378,51 @@
         ${run?.events?`<details class="event-log"><summary>Execution event stream (${run.events.length})</summary><pre class="raw-json">${pretty(run.events)}</pre></details>`:''}
       </div></section>`;
     }
+    async function generateRandomScenario() {
+      const btn = $('btn-random-scenario');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang tạo...'; }
+      try {
+        const res = await fetch('/api/generate-synthetic', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ count: 1 })
+        });
+        const data = await res.json();
+        if (data.scenarios && data.scenarios.length > 0) {
+          const syn = data.scenarios[0];
+          selected = syn.scenario_id;
+          await loadScenarios();
+          const newBtn = document.querySelector(`.scenario[data-id="${syn.scenario_id}"]`);
+          if (newBtn) {
+            newBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+          $('run').disabled = false;
+        }
+      } catch (err) {
+        alert('Không thể tạo hồ sơ random: ' + err.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🎲 Random Case'; }
+      }
+    }
+
     async function loadScenarios(){
       const scenarios=await fetch('/api/scenarios').then(r=>r.json());
-      $('scenarios').innerHTML=scenarios.map(s=>`<button class="scenario" data-id="${esc(s.scenario_id)}"><b>${esc(s.name)}</b><span>${esc(s.description)}</span><span>Expected: ${esc(s.expected_outcome)}</span></button>`).join('');
-      document.querySelectorAll('.scenario').forEach(button=>button.onclick=()=>{document.querySelectorAll('.scenario').forEach(x=>x.classList.remove('active'));button.classList.add('active');selected=button.dataset.id;$('run').disabled=false;});
+      $('scenarios').innerHTML=scenarios.map(s=>{
+        const isRandom = s.scenario_id.startsWith('syn_') || s.scenario_id.startsWith('custom_');
+        const badge = isRandom ? '<span style="background:#7c3aed; color:white; font-size:9px; padding:2px 6px; border-radius:4px; margin-left:6px; font-weight:800;">🎲 RANDOM</span>' : '';
+        const activeCls = selected === s.scenario_id ? ' active' : '';
+        return `<button class="scenario${activeCls}" data-id="${esc(s.scenario_id)}">
+          <b>${esc(s.name)}${badge}</b>
+          <span>${esc(s.description)}</span>
+          <span>Expected: ${esc(s.expected_outcome)}</span>
+        </button>`;
+      }).join('');
+      document.querySelectorAll('.scenario').forEach(button=>button.onclick=()=>{
+        document.querySelectorAll('.scenario').forEach(x=>x.classList.remove('active'));
+        button.classList.add('active');
+        selected=button.dataset.id;
+        $('run').disabled=false;
+      });
     }
     function resultClass(decision){return decision.includes('APPROVE')?'pass':decision.includes('ESCALATE')?'warn':'fail'}
     function renderProgress(run){$('content').innerHTML=workflowCanvas(run)}
@@ -395,7 +450,16 @@
       const reports=Object.entries(s.analyst_reports).map(([name,value])=>`<div class="data-card"><h3>${esc(name)}</h3><pre>${pretty(value)}</pre></div>`).join('');
       const tools=s.tool_history.map(t=>`<tr><td>${esc(t.node_id)}</td><td>${esc(t.tool_name)}</td><td><span class="badge ${t.status==='SUCCESS'?'pass':'fail'}">${esc(t.status)}</span></td></tr>`).join('');
       const traces=s.node_history.map(n=>{const nodeTools=s.tool_history.filter(t=>t.node_id===n.node_id);return `<details id="trace-${n.node_id}"><summary>${esc(n.node_id)} · ${esc(n.agent_name)} · State v${esc(n.input_state_version)} → v${esc(n.output_state_version)}</summary><div class="io"><div><b>INPUT CONTEXT</b><pre>${pretty(n.input_context)}</pre></div><div><b>STRUCTURED OUTPUT</b><pre>${pretty(n.output)}</pre></div><div><b>SYSTEM + ROLE PROMPT</b><pre>${esc(n.system_and_role_prompt)}</pre></div><div><b>TOOL CALLS</b><pre>${pretty(nodeTools)}</pre></div></div></details>`}).join('');
-      $('content').innerHTML=`<div class="summary"><div class="metric"><small>A13 draft opinion</small><b><span class="badge ${resultClass(data.actual_outcome)}">${esc(data.actual_outcome)}</span></b></div><div class="metric"><small>Deterministic control</small><b>${esc(control.status)}</b></div><div class="metric"><small>Expected outcome</small><b>${data.outcome_matches?'MATCH':'MISMATCH'} · ${esc(data.duration_ms)} ms</b></div></div>
+      $('content').innerHTML=`<div class="summary">
+        <div class="metric"><small>A13 draft opinion</small><b><span class="badge ${resultClass(data.actual_outcome)}">${esc(data.actual_outcome)}</span></b></div>
+        <div class="metric"><small>Deterministic control</small><b>${esc(control.status)}</b></div>
+        <div class="metric"><small>Expected outcome</small><b>${data.outcome_matches?'MATCH':'MISMATCH'} · ${esc(data.duration_ms)} ms</b></div>
+        <div style="display:flex; align-items:center; justify-content:flex-end;">
+          <button class="run-button" style="margin:0; background:#0284c7; padding:8px 14px; font-size:12px; font-weight:800; cursor:pointer;" onclick="openCaseExplanationModal('${esc(data.state.case_id)}')">
+            📋 ${currentLang()==='en'?'Executive Summary & 13-Agent Explainability':'Tờ Trình Tóm Tắt & Giải Trình 13 Agent'}
+          </button>
+        </div>
+      </div>
         ${workflowCanvas(completedRun,versions,data.node_outcomes||{},data.risk_propagation||{},data)}
         ${stateTimeline(checkpointData)}
         <section class="section"><h2>Input / output trace</h2><div class="trace">${traces}</div></section>
@@ -646,8 +710,119 @@
       }
     };
 
+    async function openCaseExplanationModal(caseId) {
+      const modal = $('case-explanation-modal');
+      const body = $('case-explanation-body');
+      const title = $('case-explanation-title');
+      if (!modal || !body) return;
+      modal.style.display = 'flex';
+      title.textContent = currentLang()==='en' ? `Executive Decision Explanation - Case ${caseId}` : `Tờ Trình Tóm Tắt & Giải Trình Quyết Định - Hồ sơ ${caseId}`;
+      body.innerHTML = `<div style="text-align:center; padding:40px; color:#38bdf8; font-weight:700;">Đang nạp dữ liệu giải trình 13 Agents...</div>`;
+
+      try {
+        const res = await fetch(`/api/case-explanation/${encodeURIComponent(caseId)}`);
+        if (!res.ok) throw new Error('Không thể tải báo cáo giải trình');
+        const report = await res.json();
+        renderCaseExplanation(report);
+      } catch (err) {
+        body.innerHTML = `<div style="color:#ef4444; padding:20px; font-weight:700;">Lỗi: ${esc(err.message)}</div>`;
+      }
+    }
+
+    function closeCaseExplanationModal() {
+      const modal = $('case-explanation-modal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function renderCaseExplanation(rep) {
+      const body = $('case-explanation-body');
+      const linkHtmlBtn = $('btn-open-html-report');
+      if (linkHtmlBtn) {
+        linkHtmlBtn.onclick = () => window.open(`/api/case-report-html/${encodeURIComponent(rep.case_id)}`, '_blank');
+      }
+      const linkLlmBtn = $('btn-open-llm-report');
+      if (linkLlmBtn) {
+        linkLlmBtn.onclick = () => window.open(`/api/case-llm-report-html/${encodeURIComponent(rep.case_id)}`, '_blank');
+      }
+
+      const rows = rep.agent_explanations.map(a => {
+        const inStr = Object.entries(a.inputs_summary).map(([k,v]) => `• <b>${esc(k)}</b>: ${esc(v)}`).join('<br>');
+        const outStr = Object.entries(a.outputs_summary).map(([k,v]) => `• <b>${esc(k)}</b>: ${esc(v)}`).join('<br>');
+        return `<tr>
+          <td style="padding:10px; border-bottom:1px solid #334155; font-weight:700; color:#38bdf8;">
+            ${esc(a.node_id)}: ${esc(a.agent_name)}<br>
+            <small style="color:#94a3b8; font-weight:normal;">${esc(a.stage)}</small>
+          </td>
+          <td style="padding:10px; border-bottom:1px solid #334155;">
+            <span class="badge-signal badge-${a.verdict_signal}">${esc(a.verdict_signal)}</span>
+          </td>
+          <td style="padding:10px; border-bottom:1px solid #334155; font-size:12px; color:#cbd5e1;">${inStr}</td>
+          <td style="padding:10px; border-bottom:1px solid #334155; font-size:12px; color:#cbd5e1;">${outStr}</td>
+          <td style="padding:10px; border-bottom:1px solid #334155; color:#f8fafc; line-height:1.4;">${esc(a.rationale)}</td>
+        </tr>`;
+      }).join('');
+
+      const drivers = rep.primary_decision_drivers.map(d => `<li style="margin-bottom:6px;">${esc(d)}</li>`).join('');
+
+      body.innerHTML = `
+        <div style="background:#1e293b; padding:18px; border-radius:8px; margin-bottom:20px; border-left:4px solid #38bdf8;">
+          <h3 style="margin:0 0 10px; color:#38bdf8; font-size:15px;">🏛️ Tóm Tắt Điều Hành (Executive Summary)</h3>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; font-size:12px;">
+            <div><b>Khách hàng:</b> ${esc(rep.borrower.name || 'N/A')}</div>
+            <div><b>Mã số thuế:</b> <code>${esc(rep.borrower.tax_code || 'N/A')}</code></div>
+            <div><b>Đề xuất vay:</b> ${(rep.loan_request.amount||0).toLocaleString()} VND</div>
+            <div><b>Thời hạn:</b> ${rep.loan_request.tenor_months||12} tháng</div>
+            <div><b>Ý kiến AI (A13):</b> <span class="badge-signal badge-GREEN">${esc(rep.final_ai_decision)}</span></div>
+            <div><b>Kiểm soát:</b> <code>${esc(rep.control_gate_status)}</code></div>
+          </div>
+          <h4 style="margin:14px 0 6px; font-size:13px; color:#93c5fd;">🎯 Yếu Tố Quyết Định Cốt Lõi:</h4>
+          <ul style="margin:0; padding-left:20px; color:#cbd5e1;">${drivers}</ul>
+        </div>
+
+        <h3 style="color:#93c5fd; font-size:15px; margin:20px 0 10px;">🔍 Bảng Giải Trình Chi Tiết 13 Agents (Inputs, Outputs & Rationale)</h3>
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; background:#182234; border-radius:8px;">
+            <thead>
+              <tr style="background:#0f172a; color:#38bdf8; text-align:left;">
+                <th style="padding:10px; border-bottom:2px solid #334155;">Agent & Vai trò</th>
+                <th style="padding:10px; border-bottom:2px solid #334155;">Tín hiệu</th>
+                <th style="padding:10px; border-bottom:2px solid #334155;">Dữ liệu Đầu vào (Key Inputs)</th>
+                <th style="padding:10px; border-bottom:2px solid #334155;">Kết quả Đầu ra (Key Outputs)</th>
+                <th style="padding:10px; border-bottom:2px solid #334155;">💡 Lý Do & Logic Quyết Định (Why / Rationale)</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:20px; background:#1e293b; padding:14px; border-radius:8px;">
+          <h4 style="margin:0 0 8px; color:#93c5fd; font-size:13px;">🛡️ Bảo Chứng Thể Chế & Chữ Ký Số</h4>
+          <p style="margin:0; font-size:12px; color:#94a3b8;">
+            <b>Mã băm Chữ ký số HMAC-SHA256:</b> <code>${esc(rep.governance_and_compliance.digital_seal_hash)}</code><br>
+            <b>Chính sách áp dụng:</b> <code>${esc(rep.governance_and_compliance.policy_id)}</code> | <b>Thẩm quyền phê duyệt:</b> <code>${esc(rep.governance_and_compliance.required_authority)}</code>
+          </p>
+        </div>
+      `;
+    }
+
     setLanguage(currentLang());
     updateEngineChip();
   </script>
+
+  <!-- Case Explanation Modal -->
+  <div id="case-explanation-modal" class="modal-overlay" onclick="if(event.target===this)closeCaseExplanationModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="case-explanation-title" style="margin:0; font-size:16px; color:#38bdf8;">📋 Tờ Trình Tóm Tắt & Giải Trình 13 Agent</h2>
+        <button onclick="closeCaseExplanationModal()" style="background:transparent; border:0; color:#94a3b8; font-size:18px; cursor:pointer; font-weight:700;">✖</button>
+      </div>
+      <div id="case-explanation-body" class="modal-body"></div>
+      <div class="modal-footer">
+        <button id="btn-open-llm-report" class="btn-action" style="background:#7c3aed; color:white;">🤖 Tờ Trình DeepSeek AI Memo ↗</button>
+        <button id="btn-open-html-report" class="btn-action btn-primary">📄 Báo Cáo 13 Agent (HTML) ↗</button>
+        <button onclick="closeCaseExplanationModal()" class="btn-action btn-secondary">Đóng</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

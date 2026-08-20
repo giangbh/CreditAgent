@@ -1,15 +1,36 @@
+# Python & Virtual Environments
 __pycache__/
 *.py[cod]
+*$py.class
 .venv/
+env/
+venv/
 dist/
 build/
 *.egg-info/
-demo-output/
-.env
 
-.gstack/
-graphify-out/
+# Environment Variables & Secret API Keys (CRITICAL)
+.env
+.env.*
+.env.local
+!.env.example
+*.key
+*.pem
+*.secret
+secrets/
+config.local.*
+
+# Local Outputs, Logs & Databases
+demo-output/
 logs/
 *.log
 *.db
+*.sqlite
+*.sqlite3
 
+# Tooling, IDEs & System
+.gstack/
+graphify-out/
+.DS_Store
+.idea/
+.vscode/

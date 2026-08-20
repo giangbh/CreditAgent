@@ -1,6 +1,36 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
+
+
+def _load_env_file() -> None:
+    """Auto-loads key-value pairs from .env or .env.local into os.environ if not already set."""
+    pkg_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(pkg_dir)))
+    candidates = [
+        os.path.join(root_dir, ".env"),
+        os.path.join(root_dir, ".env.local"),
+        os.path.join(os.getcwd(), ".env") if hasattr(os, "getcwd") else "",
+    ]
+    for env_path in candidates:
+        if env_path and os.path.isfile(env_path):
+            try:
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        key, val = line.split("=", 1)
+                        key = key.strip()
+                        val = val.strip().strip("'\"")
+                        if key and key not in os.environ:
+                            os.environ[key] = val
+            except Exception:
+                pass
+
+
+_load_env_file()
 
 
 @dataclass
@@ -33,6 +63,12 @@ class AppConfig:
     REDIS_URL: Optional[str] = os.getenv("REDIS_URL", None)
     CLAIM_CHECK_TTL_SECONDS: int = int(os.getenv("CLAIM_CHECK_TTL_SECONDS", "604800"))  # 7 days
     CLAIM_CHECK_STORE_TYPE: str = os.getenv("CLAIM_CHECK_STORE_TYPE", "TIERED")  # "MEMORY", "REDIS", "TIERED"
+
+    # DeepSeek & Enterprise LLM Configuration (Loaded from .env / ENV)
+    DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", os.getenv("CREDIT_AGENT_LLM_API_KEY", ""))
+    DEEPSEEK_BASE_URL: str = os.getenv("DEEPSEEK_BASE_URL", os.getenv("CREDIT_AGENT_LLM_BASE_URL", "https://api.deepseek.com")).rstrip("/")
+    DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", os.getenv("CREDIT_AGENT_LLM_MODEL", "deepseek-chat"))
+    DEEPSEEK_TIMEOUT_SEC: float = float(os.getenv("DEEPSEEK_TIMEOUT_SEC", "90.0"))
 
 
 CONFIG = AppConfig()

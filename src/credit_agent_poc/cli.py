@@ -67,6 +67,17 @@ def build_parser() -> argparse.ArgumentParser:
     load.add_argument("-a", "--archetype", choices=["HEALTHY_PRIME", "POLICY_EXCEPTION_TENOR", "SUSPICIOUS_AML", "WEAK_CASHFLOW", "INCOMPLETE_DOCS"], default=None, help="Specify risk archetype for synthetic generation")
     load.add_argument("--db-path", default=CONFIG.DB_PATH, help="Database path")
     load.add_argument("-o", "--output", type=Path, default=None, help="Output JSON report path")
+
+    exp = sub.add_parser("explain", help="generate comprehensive 13-agent explainable summary for a case")
+    exp.add_argument("-s", "--scenario", choices=SCENARIOS, default="approve_conditions", help="Scenario ID to run and explain")
+    exp.add_argument("-c", "--case-id", type=str, default=None, help="Existing Case ID in DB to explain")
+    exp.add_argument("--db-path", type=str, default=CONFIG.DB_PATH, help="Database path")
+    exp.add_argument("--json", action="store_true", help="Output report as JSON")
+    exp.add_argument("--html", type=Path, default=None, help="Export report to standalone HTML file")
+    exp.add_argument("--markdown", type=Path, default=None, help="Export report to Markdown file")
+    exp.add_argument("--llm", action="store_true", help="Use DeepSeek LLM to synthesize narrative underwriting report")
+    exp.add_argument("--llm-api-key", type=str, default=None, help="DeepSeek API key override")
+    exp.add_argument("--llm-model", type=str, default=None, help="DeepSeek model name override")
     return parser
 
 
@@ -102,6 +113,49 @@ def main(argv: Optional[List[str]] = None) -> int:
                 json.dump(report.__dict__, f, ensure_ascii=False, indent=2)
             print(f"[+] Saved load test report to: {args.output}")
         return 0 if report.failed_requests == 0 else 1
+    if args.command == "explain":
+        from .explainer import CaseExplainer
+        from .llm_synthesizer import DeepSeekCreditSynthesizer
+        repo = StateRepository(db_path=args.db_path)
+        if args.case_id:
+            state = repo.load_case(args.case_id)
+            if not state:
+                print(f"[-] Case ID not found in database: {args.case_id}")
+                return 1
+        else:
+            orchestrator = CreditOrchestrator(db_repository=repo)
+            result = orchestrator.run(args.scenario)
+            state = result.state
+
+        if args.llm:
+            synthesizer = DeepSeekCreditSynthesizer(api_key=args.llm_api_key, model=args.llm_model)
+            memo = synthesizer.generate_credit_memo(state)
+            print(memo)
+            if args.html:
+                args.html.parent.mkdir(parents=True, exist_ok=True)
+                args.html.write_text(synthesizer.generate_credit_memo_html(state), encoding="utf-8")
+                print(f"\n[+] Exported LLM HTML memo to: {args.html}")
+            if args.markdown:
+                args.markdown.parent.mkdir(parents=True, exist_ok=True)
+                args.markdown.write_text(memo, encoding="utf-8")
+                print(f"\n[+] Exported LLM Markdown memo to: {args.markdown}")
+            return 0
+
+        report = CaseExplainer.explain(state)
+        if args.json:
+            print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+        else:
+            print(report.to_markdown())
+
+        if args.html:
+            args.html.parent.mkdir(parents=True, exist_ok=True)
+            args.html.write_text(report.to_html(), encoding="utf-8")
+            print(f"\n[+] Exported standalone HTML report to: {args.html}")
+        if args.markdown:
+            args.markdown.parent.mkdir(parents=True, exist_ok=True)
+            args.markdown.write_text(report.to_markdown(), encoding="utf-8")
+            print(f"\n[+] Exported Markdown report to: {args.markdown}")
+        return 0
 
     repo = StateRepository(db_path=args.db_path)
     orchestrator = CreditOrchestrator(model=_model(args.model), db_repository=repo, engine=args.engine)

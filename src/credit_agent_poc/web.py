@@ -11,6 +11,8 @@ from urllib.parse import parse_qs, urlparse
 from .config import CONFIG
 from .db import StateRepository
 from .dossier_generator import SyntheticDossierGenerator
+from .explainer import CaseExplainer
+from .llm_synthesizer import DeepSeekCreditSynthesizer
 from .logger import audit_log
 from .orchestrator import CreditOrchestrator
 from .scenarios import SCENARIOS, scenario_catalog
@@ -117,6 +119,109 @@ class POCRequestHandler(BaseHTTPRequestHandler):
             db = StateRepository(self.db_path)
             decisions = db.get_human_decisions_by_user(user_id)
             self._json({"user_id": user_id, "decisions": decisions})
+            return
+
+        explanation_prefix = "/api/case-explanation/"
+        if path.startswith(explanation_prefix):
+            target_id = path[len(explanation_prefix) :]
+            db = StateRepository(self.db_path)
+            state = None
+            with self.runs_lock:
+                run = self.runs.get(target_id)
+                if run and run.get("result"):
+                    res_state = run["result"].get("state")
+                    if res_state:
+                        case_id = res_state.get("case_id")
+                        if case_id:
+                            state = db.load_case(case_id)
+            if not state:
+                state = db.load_case(target_id)
+            if not state:
+                self._json({"error": "case_not_found", "target_id": target_id}, HTTPStatus.NOT_FOUND)
+                return
+            report = CaseExplainer.explain(state)
+            self._json(report.to_dict())
+            return
+
+        html_report_prefix = "/api/case-report-html/"
+        if path.startswith(html_report_prefix):
+            target_id = path[len(html_report_prefix) :]
+            db = StateRepository(self.db_path)
+            state = None
+            with self.runs_lock:
+                run = self.runs.get(target_id)
+                if run and run.get("result"):
+                    res_state = run["result"].get("state")
+                    if res_state:
+                        case_id = res_state.get("case_id")
+                        if case_id:
+                            state = db.load_case(case_id)
+            if not state:
+                state = db.load_case(target_id)
+            if not state:
+                self.send_response(HTTPStatus.NOT_FOUND)
+                self.end_headers()
+                self.wfile.write(b"<h1>404 Case Not Found</h1>")
+                return
+            report = CaseExplainer.explain(state)
+            body = report.to_html().encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        llm_report_prefix = "/api/case-llm-report/"
+        if path.startswith(llm_report_prefix):
+            target_id = path[len(llm_report_prefix) :]
+            db = StateRepository(self.db_path)
+            state = None
+            with self.runs_lock:
+                run = self.runs.get(target_id)
+                if run and run.get("result"):
+                    res_state = run["result"].get("state")
+                    if res_state:
+                        case_id = res_state.get("case_id")
+                        if case_id:
+                            state = db.load_case(case_id)
+            if not state:
+                state = db.load_case(target_id)
+            if not state:
+                self._json({"error": "case_not_found", "target_id": target_id}, HTTPStatus.NOT_FOUND)
+                return
+            synthesizer = DeepSeekCreditSynthesizer()
+            memo = synthesizer.generate_credit_memo(state)
+            self._json({"case_id": state.case_id, "model": synthesizer.model, "memo_markdown": memo, "configured": synthesizer.is_configured()})
+            return
+
+        llm_html_prefix = "/api/case-llm-report-html/"
+        if path.startswith(llm_html_prefix):
+            target_id = path[len(llm_html_prefix) :]
+            db = StateRepository(self.db_path)
+            state = None
+            with self.runs_lock:
+                run = self.runs.get(target_id)
+                if run and run.get("result"):
+                    res_state = run["result"].get("state")
+                    if res_state:
+                        case_id = res_state.get("case_id")
+                        if case_id:
+                            state = db.load_case(case_id)
+            if not state:
+                state = db.load_case(target_id)
+            if not state:
+                self.send_response(HTTPStatus.NOT_FOUND)
+                self.end_headers()
+                self.wfile.write(b"<h1>404 Case Not Found</h1>")
+                return
+            synthesizer = DeepSeekCreditSynthesizer()
+            body = synthesizer.generate_credit_memo_html(state).encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
             return
 
         if path in {"/", "/index.html"}:
