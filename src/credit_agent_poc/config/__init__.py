@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -10,6 +11,7 @@ class AppConfig:
     TEMPORAL_TARGET_HOST: str = os.getenv("TEMPORAL_TARGET_HOST", f"{os.getenv('TEMPORAL_HOST', '127.0.0.1')}:{os.getenv('TEMPORAL_PORT', '7233')}")
     TEMPORAL_UI_URL: str = os.getenv("TEMPORAL_UI_URL", "http://localhost:8233")
     TEMPORAL_TASK_QUEUE: str = os.getenv("TEMPORAL_TASK_QUEUE", "credit-approval-queue")
+    TEMPORAL_WORKER_COUNT: int = int(os.getenv("TEMPORAL_WORKER_COUNT", "4"))
 
     # Web Server & Persistence Configuration
     WEB_HOST: str = os.getenv("WEB_HOST", "127.0.0.1")
@@ -26,6 +28,11 @@ class AppConfig:
     LOS_STRUCTURING_ENDPOINT_URL: str = os.getenv("LOS_STRUCTURING_ENDPOINT_URL", "https://los.internal.bank.vn/api/v1")
     BACKEND_API_KEY: str = os.getenv("BACKEND_API_KEY", "")
     BACKEND_TIMEOUT_SEC: float = float(os.getenv("BACKEND_TIMEOUT_SEC", "10.0"))
+
+    # Distributed Claim Check & Cache Configuration (Multi-Tier: L1 RAM -> L2 Redis -> L3 DB)
+    REDIS_URL: Optional[str] = os.getenv("REDIS_URL", None)
+    CLAIM_CHECK_TTL_SECONDS: int = int(os.getenv("CLAIM_CHECK_TTL_SECONDS", "604800"))  # 7 days
+    CLAIM_CHECK_STORE_TYPE: str = os.getenv("CLAIM_CHECK_STORE_TYPE", "TIERED")  # "MEMORY", "REDIS", "TIERED"
 
 
 CONFIG = AppConfig()

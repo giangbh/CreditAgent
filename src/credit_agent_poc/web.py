@@ -226,43 +226,53 @@ class POCRequestHandler(BaseHTTPRequestHandler):
                     run["active_nodes"].remove(node_id)
 
         trace_id = f"tr-{run_id}"
-        case_id = f"CASE-{scenario_id.upper()}"
+        case_id = f"CASE-{scenario_id.upper()}-{run_id[:6].upper()}"
         audit_log("API_RUN_REQUEST_STARTED", "WEB_SERVER", trace_id, case_id, details={"run_id": run_id, "scenario_id": scenario_id, "engine": engine})
         try:
-            orchestrator = cls.get_orchestrator(step_delay_ms=300, engine=engine)
+            db_repo = StateRepository(cls.db_path)
+            db_repo.log_audit_event(run_id, AuditEvent(event="api_run_request_started", node_id="WEB_SERVER", details={"scenario_id": scenario_id, "engine": engine}))
+        except Exception:
+            pass
+
+        try:
+            orchestrator = cls.get_orchestrator(step_delay_ms=0, engine=engine)
             result = orchestrator.run(scenario_id, observer=observe)
+            case_id = result.state.case_id
             with cls.runs_lock:
                 cls.runs[run_id]["status"] = "COMPLETED"
                 cls.runs[run_id]["active_nodes"] = []
                 cls.runs[run_id]["result"] = result.to_dict()
             audit_log("API_RUN_REQUEST_COMPLETED", "WEB_SERVER", trace_id, case_id, details={"run_id": run_id, "outcome": result.actual_outcome})
+            try:
+                db_repo = StateRepository(cls.db_path)
+                db_repo.log_audit_event(run_id, AuditEvent(event="api_run_request_completed", node_id="WEB_SERVER", details={"case_id": case_id, "outcome": result.actual_outcome}))
+            except Exception:
+                pass
         except Exception as exc:
             with cls.runs_lock:
                 cls.runs[run_id]["status"] = "FAILED"
                 cls.runs[run_id]["active_nodes"] = []
                 cls.runs[run_id]["error"] = str(exc)
             audit_log("API_RUN_REQUEST_FAILED", "WEB_SERVER", trace_id, case_id, level="ERROR", details={"run_id": run_id, "error": str(exc)})
+            try:
+                db_repo = StateRepository(cls.db_path)
+                db_repo.log_audit_event(run_id, AuditEvent(event="api_run_request_failed", node_id="WEB_SERVER", details={"error": str(exc)}))
+            except Exception:
+                pass
 
 
-def _start_background_temporal_worker(host: str = CONFIG.TEMPORAL_TARGET_HOST, task_queue: str = CONFIG.TEMPORAL_TASK_QUEUE) -> None:
-    """Khởi chạy Worker Temporal thường trực dưới nền khi Web Server chạy."""
+def _start_background_temporal_worker(
+    host: str = CONFIG.TEMPORAL_TARGET_HOST,
+    task_queue: str = CONFIG.TEMPORAL_TASK_QUEUE,
+    worker_count: int = CONFIG.TEMPORAL_WORKER_COUNT,
+) -> None:
+    """Khởi chạy Worker Pool Temporal thường trực dưới nền khi Web Server chạy."""
     def _worker_thread():
         async def _run():
             try:
-                from temporalio.client import Client
-                from temporalio.worker import Worker
-                from .workflow import TEMPORAL_WORKFLOWS, TEMPORAL_ACTIVITIES
-                
+                from .workflow import start_temporal_worker
                 if is_temporal_cluster_alive(host):
-                    client = await Client.connect(host)
-                    worker = Worker(
-                        client,
-                        task_queue=task_queue,
-                        workflows=TEMPORAL_WORKFLOWS,
-                        activities=TEMPORAL_ACTIVITIES,
-                    )
-                    print(f"[*] Temporal Background Worker active and polling '{task_queue}' on {host}")
-                    await worker.run()
+                    await start_temporal_worker(target_host=host, task_queue=task_queue, worker_count=worker_count)
             except Exception:
                 pass
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -54,6 +55,16 @@ def build_parser() -> argparse.ArgumentParser:
     worker = sub.add_parser("worker", help="start a native Temporal Worker process")
     worker.add_argument("--target-host", default=CONFIG.TEMPORAL_TARGET_HOST, help="Temporal Server cluster host")
     worker.add_argument("--task-queue", default=CONFIG.TEMPORAL_TASK_QUEUE, help="Temporal task queue name")
+    worker.add_argument("--count", type=int, default=CONFIG.TEMPORAL_WORKER_COUNT, help="Number of concurrent worker instances")
+
+    load = sub.add_parser("load-test", help="run multi-threaded concurrent load benchmark")
+    load.add_argument("-n", "--total", type=int, default=12, help="Total requests")
+    load.add_argument("-c", "--concurrency", type=int, default=4, help="Concurrent workers")
+    load.add_argument("-m", "--mode", choices=["api", "temporal"], default="api", help="Benchmark mode")
+    load.add_argument("-u", "--url", default=f"http://{CONFIG.WEB_HOST}:{CONFIG.WEB_PORT}", help="Web Server URL")
+    load.add_argument("-s", "--scenario", default=None, help="Specific scenario")
+    load.add_argument("--db-path", default=CONFIG.DB_PATH, help="Database path")
+    load.add_argument("-o", "--output", type=Path, default=None, help="Output JSON report path")
     return parser
 
 
@@ -68,8 +79,25 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command == "worker":
         import asyncio
         from .workflow import start_temporal_worker
-        asyncio.run(start_temporal_worker(target_host=args.target_host, task_queue=args.task_queue))
+        asyncio.run(start_temporal_worker(target_host=args.target_host, task_queue=args.task_queue, worker_count=args.count))
         return 0
+    if args.command == "load-test":
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+        from scripts.load_test import execute_load_test
+        report = execute_load_test(
+            mode=args.mode,
+            target_url=args.url,
+            total_requests=args.total,
+            concurrency=args.concurrency,
+            scenario_filter=args.scenario,
+            db_path=args.db_path,
+        )
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            with open(args.output, "w", encoding="utf-8") as f:
+                json.dump(report.__dict__, f, ensure_ascii=False, indent=2)
+            print(f"[+] Saved load test report to: {args.output}")
+        return 0 if report.failed_requests == 0 else 1
 
     repo = StateRepository(db_path=args.db_path)
     orchestrator = CreditOrchestrator(model=_model(args.model), db_repository=repo, engine=args.engine)

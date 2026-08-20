@@ -11,12 +11,15 @@ from dataclasses import replace
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from temporalio import activity, workflow
+from temporalio.api.workflowservice.v1 import DescribeTaskQueueRequest
+from temporalio.api.taskqueue.v1 import TaskQueue
 from temporalio.client import Client
 from temporalio.common import RetryPolicy
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
 from .agents import AGENT_NAMES, AgentExecution, AgentRuntime
+from .claim_check import get_claim_check_store, BaseClaimCheckStore
 from .config import CONFIG
 from .db import StateRepository
 from .model import ModelAdapter, ScenarioModel
@@ -125,6 +128,7 @@ _ACTIVE_MODEL: Optional[ModelAdapter] = None
 _ACTIVE_GATEWAY: Optional[ToolGateway] = None
 _ACTIVE_OBSERVER: Optional[Callable[[dict[str, Any]], None]] = None
 _ACTIVE_STEP_DELAY_MS: int = 0
+_CLAIM_CHECK_STORE: BaseClaimCheckStore = get_claim_check_store()
 
 
 # ==============================================================================
@@ -132,7 +136,7 @@ _ACTIVE_STEP_DELAY_MS: int = 0
 # ==============================================================================
 @activity.defn(name="execute_agent_node")
 async def execute_agent_activity(node_id: str, state_dict: Dict[str, Any], scenario_id: str) -> Dict[str, Any]:
-    """Temporal Activity: Executes a single agent node with heartbeat reporting and fail-degraded safety."""
+    """Temporal Activity: Executes a single agent node with Claim Check Pattern state optimization, heartbeat reporting and fail-degraded safety."""
     if _ACTIVE_OBSERVER:
         try:
             _ACTIVE_OBSERVER({"event": "NODE_STARTED", "node_id": node_id})
@@ -148,16 +152,34 @@ async def execute_agent_activity(node_id: str, state_dict: Dict[str, Any], scena
         pass
 
     scenario = SCENARIOS[scenario_id]
-    if state_dict:
+    case_id = state_dict.get("case_id") if isinstance(state_dict, dict) else None
+
+    # Claim Check Pattern: Retrieve state from in-memory cache or SQLite Database (credit_agent.db)
+    is_claim_check_ref = isinstance(state_dict, dict) and ("scenario_id" not in state_dict or "case_file" not in state_dict)
+    if is_claim_check_ref and case_id:
+        if case_id in _CLAIM_CHECK_STORE:
+            state = copy.deepcopy(_CLAIM_CHECK_STORE[case_id])
+        else:
+            db_repo = StateRepository(CONFIG.DB_PATH)
+            db_state = db_repo.load_case(case_id)
+            if db_state:
+                state = db_state
+                _CLAIM_CHECK_STORE[case_id] = state
+            else:
+                state = CreditState(case_id=case_id, scenario_id=scenario.scenario_id, run_id=str(uuid.uuid4()))
+                _CLAIM_CHECK_STORE[case_id] = state
+    elif state_dict and isinstance(state_dict, dict) and "scenario_id" in state_dict:
         if "audit" in state_dict and isinstance(state_dict["audit"], list):
             state_dict["audit"] = [AuditEvent(**evt) if isinstance(evt, dict) else evt for evt in state_dict["audit"]]
         state = CreditState(**state_dict)
+        _CLAIM_CHECK_STORE[state.case_id] = state
     else:
         state = CreditState(
             case_id=f"CASE-{scenario.scenario_id.upper()}",
             scenario_id=scenario.scenario_id,
             run_id=str(uuid.uuid4()),
         )
+        _CLAIM_CHECK_STORE[state.case_id] = state
 
     try:
         model = _ACTIVE_MODEL or ScenarioModel()
@@ -210,15 +232,26 @@ async def execute_agent_activity(node_id: str, state_dict: Dict[str, Any], scena
             except Exception:
                 pass
 
+        _CLAIM_CHECK_STORE[state.case_id] = state
+        try:
+            StateRepository(CONFIG.DB_PATH).save_case(state)
+        except Exception:
+            pass
+
         return {
             "node_id": execution.node_id,
             "agent_name": execution.agent_name,
             "model_name": execution.model_name,
-            "prompt": execution.prompt,
-            "context": execution.context,
-            "output": execution.output,
-            "patches": patches_out,
-            "updated_state": state.public_snapshot(),
+            "status": "COMPLETED",
+            "case_id": state.case_id,
+            "state_version": state.state_version,
+            "prompt_hash": hashlib.sha256(execution.prompt.encode()).hexdigest(),
+            "written_paths": [patch.path for patch in execution.patches],
+            "updated_state": (
+                {"case_id": state.case_id, "state_version": state.state_version, "analyst_reports": state.analyst_reports}
+                if node_id in ("A2", "A3", "A4")
+                else {"case_id": state.case_id, "state_version": state.state_version}
+            ),
         }
     except Exception as exc:
         # Graceful degradation at Activity level when maximum attempts/runtime fails
@@ -318,15 +351,21 @@ async def execute_agent_activity(node_id: str, state_dict: Dict[str, Any], scena
             details={"error": error_msg, "written_paths": written_paths},
         )
         state.audit.append(evt)
+        _CLAIM_CHECK_STORE[state.case_id] = state
         return {
             "node_id": node_id,
             "agent_name": AGENT_NAMES.get(node_id, node_id),
             "model_name": "FallbackDegradedEngine",
-            "prompt": "DEGRADED_TIMEOUT",
-            "context": {},
-            "output": {"error": error_msg},
-            "patches": [],
-            "updated_state": state.public_snapshot(),
+            "status": "DEGRADED_TIMEOUT",
+            "case_id": state.case_id,
+            "state_version": state.state_version,
+            "prompt_hash": "timeout_error",
+            "written_paths": written_paths,
+            "updated_state": (
+                {"case_id": state.case_id, "state_version": state.state_version, "analyst_reports": state.analyst_reports}
+                if node_id in ("A2", "A3", "A4")
+                else {"case_id": state.case_id, "state_version": state.state_version}
+            ),
         }
 
 
@@ -342,9 +381,24 @@ async def evaluate_control_activity(state_dict: Dict[str, Any]) -> Dict[str, Any
     if _ACTIVE_STEP_DELAY_MS > 0:
         await asyncio.sleep(_ACTIVE_STEP_DELAY_MS / 1000.0)
 
-    if "audit" in state_dict and isinstance(state_dict["audit"], list):
-        state_dict["audit"] = [AuditEvent(**evt) if isinstance(evt, dict) else evt for evt in state_dict["audit"]]
-    state = CreditState(**state_dict)
+    case_id = state_dict.get("case_id") if isinstance(state_dict, dict) else None
+    is_claim_check_ref = isinstance(state_dict, dict) and ("scenario_id" not in state_dict or "case_file" not in state_dict)
+    if is_claim_check_ref and case_id:
+        if case_id in _CLAIM_CHECK_STORE:
+            state = copy.deepcopy(_CLAIM_CHECK_STORE[case_id])
+        else:
+            db_repo = StateRepository(CONFIG.DB_PATH)
+            db_state = db_repo.load_case(case_id)
+            if db_state:
+                state = db_state
+                _CLAIM_CHECK_STORE[case_id] = state
+            else:
+                raise ValueError(f"Unable to find state for case_id: {case_id}")
+    elif state_dict and isinstance(state_dict, dict) and "scenario_id" in state_dict:
+        if "audit" in state_dict and isinstance(state_dict["audit"], list):
+            state_dict["audit"] = [AuditEvent(**evt) if isinstance(evt, dict) else evt for evt in state_dict["audit"]]
+        state = CreditState(**state_dict)
+        _CLAIM_CHECK_STORE[state.case_id] = state
 
     opinion = state.coapproval_opinion or {}
     reports = state.analyst_reports or {}
@@ -403,6 +457,11 @@ async def evaluate_control_activity(state_dict: Dict[str, Any]) -> Dict[str, Any
         except Exception:
             pass
 
+    _CLAIM_CHECK_STORE[state.case_id] = state
+    try:
+        StateRepository(CONFIG.DB_PATH).save_case(state)
+    except Exception:
+        pass
     return state.public_snapshot()
 
 
@@ -562,50 +621,57 @@ class CreditCoApprovalWorkflow:
     @workflow.run
     async def run(self, scenario_id: str) -> Dict[str, Any]:
         workflow_id = workflow.info().workflow_id if hasattr(workflow, "info") and callable(workflow.info) else "credit-wf"
+        run_suffix = workflow_id.split("-")[-1] if "-" in workflow_id else uuid.uuid4().hex[:6]
+        initial_case_id = f"CASE-{scenario_id.upper()}-{run_suffix.upper()}"
 
-        # Stage 1 Child Workflow
+        # Stage 1 Child Workflow (Evidence)
         s1_state = await workflow.execute_child_workflow(
             Stage1EvidenceChildWorkflow.run,
-            args=[scenario_id, {}],
+            args=[scenario_id, {"case_id": initial_case_id}],
             id=f"{workflow_id}-stage1",
         )
+        c_ref1 = {"case_id": s1_state.get("case_id")} if isinstance(s1_state, dict) and s1_state.get("case_id") else s1_state
 
-        # Stage 2 Child Workflow
+        # Stage 2 Child Workflow (Challenge)
         s2_state = await workflow.execute_child_workflow(
             Stage2ChallengeChildWorkflow.run,
-            args=[scenario_id, s1_state],
+            args=[scenario_id, c_ref1],
             id=f"{workflow_id}-stage2",
         )
+        c_ref2 = {"case_id": s2_state.get("case_id")} if isinstance(s2_state, dict) and s2_state.get("case_id") else s2_state
 
-        # Stage 3 Child Workflow
+        # Stage 3 Child Workflow (Structuring)
         s3_state = await workflow.execute_child_workflow(
             Stage3StructuringChildWorkflow.run,
-            args=[scenario_id, s2_state],
+            args=[scenario_id, c_ref2],
             id=f"{workflow_id}-stage3",
         )
+        c_ref3 = {"case_id": s3_state.get("case_id")} if isinstance(s3_state, dict) and s3_state.get("case_id") else s3_state
 
-        # Stage 4 Child Workflow
+        # Stage 4 Child Workflow (Risk Committee)
         s4_state = await workflow.execute_child_workflow(
             Stage4RiskCommitteeChildWorkflow.run,
-            args=[scenario_id, s3_state],
+            args=[scenario_id, c_ref3],
             id=f"{workflow_id}-stage4",
         )
+        c_ref4 = {"case_id": s4_state.get("case_id")} if isinstance(s4_state, dict) and s4_state.get("case_id") else s4_state
 
-        # Stage 5 Child Workflow
+        # Stage 5 Child Workflow (Co-Approval)
         s5_state = await workflow.execute_child_workflow(
             Stage5CoApprovalChildWorkflow.run,
-            args=[scenario_id, s4_state],
+            args=[scenario_id, c_ref4],
             id=f"{workflow_id}-stage5",
         )
+        c_ref5 = {"case_id": s5_state.get("case_id")} if isinstance(s5_state, dict) and s5_state.get("case_id") else s5_state
 
         # Final Control Plane Gate Activity (Deterministic 0-LLM)
         final_state = await workflow.execute_activity(
             evaluate_control_activity,
-            args=[s5_state],
+            args=[c_ref5],
             start_to_close_timeout=timedelta(seconds=30),
         )
 
-        return {"status": "COMPLETED", "scenario_id": scenario_id, "final_state": final_state}
+        return {"status": "COMPLETED", "scenario_id": scenario_id, "case_id": c_ref5.get("case_id")}
 
 
 TEMPORAL_WORKFLOWS = [
@@ -656,12 +722,13 @@ class TemporalWorkflowEngine:
         run_uid = str(uuid.uuid4())[:8]
         workflow_id = f"credit-wf-{scenario_id}-{run_uid}"
 
-        client = await Client.connect(self.target_host)
+        client = await Client.connect(self.target_host, identity=f"runner-{run_uid}")
         async with Worker(
             client,
             task_queue=self.task_queue,
             workflows=TEMPORAL_WORKFLOWS,
             activities=TEMPORAL_ACTIVITIES,
+            identity=f"runner-{run_uid}",
         ):
             res = await client.execute_workflow(
                 CreditCoApprovalWorkflow.run,
@@ -669,16 +736,21 @@ class TemporalWorkflowEngine:
                 id=workflow_id,
                 task_queue=self.task_queue,
             )
-            final_state_dict = res.get("final_state", {})
+            case_id = res.get("case_id") or f"CASE-{scenario_id.upper()}"
+            duration_ms = round((time.perf_counter() - started) * 1000)
+            state = _CLAIM_CHECK_STORE.get(case_id) or self.repository.load_case(case_id)
+            if not state:
+                final_state_dict = res.get("final_state", {})
+                if "audit" in final_state_dict and isinstance(final_state_dict["audit"], list):
+                    final_state_dict["audit"] = [
+                        AuditEvent(**evt) if isinstance(evt, dict) else evt for evt in final_state_dict["audit"]
+                    ]
+                state = CreditState(**final_state_dict)
 
-        duration_ms = round((time.perf_counter() - started) * 1000)
-
-        # Reconstruct CreditState from final state snapshot
-        if "audit" in final_state_dict and isinstance(final_state_dict["audit"], list):
-            final_state_dict["audit"] = [
-                AuditEvent(**evt) if isinstance(evt, dict) else evt for evt in final_state_dict["audit"]
-            ]
-        state = CreditState(**final_state_dict)
+        # Ensure node_history is sorted deterministically in PIPELINE order
+        state.node_history.sort(
+            key=lambda x: PIPELINE.index(x["node_id"]) if x.get("node_id") in PIPELINE else 99
+        )
 
         # Build 14 Checkpoints from execution history with incremental state snapshots
         checkpoints: list[dict[str, Any]] = []
@@ -737,6 +809,13 @@ class TemporalWorkflowEngine:
         }
         checkpoints.append(ctrl_cp)
         self.repository.save_checkpoint(state.run_id, ctrl_cp)
+
+        # Persist all audit events into SQLite audit_events table
+        for evt in state.audit:
+            try:
+                self.repository.log_audit_event(state.run_id, evt)
+            except Exception:
+                pass
 
         # Persist case to localDB
         self.repository.save_case(state)
@@ -1014,6 +1093,14 @@ class TemporalWorkflowEngine:
         }
         checkpoints.append(ctrl_cp)
         self.repository.save_checkpoint(state.run_id, ctrl_cp)
+
+        # Persist all audit events into SQLite audit_events table
+        for evt in state.audit:
+            try:
+                self.repository.log_audit_event(state.run_id, evt)
+            except Exception:
+                pass
+
         self.repository.save_case(state)
 
         return state, checkpoints, duration_ms
@@ -1047,16 +1134,35 @@ class TemporalWorkflowEngine:
         return state, checkpoints, duration_ms
 
 
-async def start_temporal_worker(target_host: Optional[str] = None, task_queue: Optional[str] = None) -> None:
-    """Starts a native Temporal Worker listening for workflow and activity tasks."""
+async def start_temporal_worker(
+    target_host: Optional[str] = None,
+    task_queue: Optional[str] = None,
+    worker_count: int = 1,
+    listen_specialized_queues: bool = True,
+) -> None:
+    """Starts a pool of native Temporal Workers listening for workflows and activities."""
     host = target_host or CONFIG.TEMPORAL_TARGET_HOST
     queue = task_queue or CONFIG.TEMPORAL_TASK_QUEUE
-    client = await Client.connect(host)
-    worker = Worker(
-        client,
-        task_queue=queue,
-        workflows=TEMPORAL_WORKFLOWS,
-        activities=TEMPORAL_ACTIVITIES,
-    )
-    print(f"Temporal Worker listening on queue '{queue}' at {host}...")
-    await worker.run()
+
+    queues = [queue]
+    if listen_specialized_queues:
+        for q in ["fast-tools-queue", "idp-ocr-queue", "heavy-llm-queue"]:
+            if q not in queues:
+                queues.append(q)
+
+    workers = []
+    for q in queues:
+        for idx in range(max(1, worker_count)):
+            identity = f"credit-worker-{q}-{idx + 1}"
+            client = await Client.connect(host, identity=identity)
+            w = Worker(
+                client,
+                task_queue=q,
+                workflows=TEMPORAL_WORKFLOWS,
+                activities=TEMPORAL_ACTIVITIES,
+                identity=identity,
+            )
+            workers.append(w)
+
+    print(f"[*] Started {len(workers)} Temporal Workers across queues {queues} on {host}")
+    await asyncio.gather(*[w.run() for w in workers])
