@@ -218,6 +218,39 @@ Triển khai mô hình **Circuit Breaker 3 Trạng thái** tại `tools/circuit_
 4. **A4 (Financial Capacity & DSCR)**: Tính toán hệ số trả nợ gốc $\text{DSCR} \ge 1.20$, thực hiện thử nghiệm độ nhạy `stressed_dscr` (-20% doanh thu, +200 bps lãi suất) và khẳng định nguyên tắc *TSBĐ không thể chữa lỗi dòng tiền chính*.
 5. **A5 (Policy & Authority)**: Ánh xạ quy tắc cứng (Tenor tối đa, LTV), trích dẫn điều khoản chính sách chuẩn xác (`policy_citation_id`) và xác định cấp thẩm quyền phê duyệt bắt buộc (`BRANCH_DIRECTOR`, `CREDIT_COMMITTEE`, `CRO_RISK`).
 
+## Chuyên đề 13: Kiến Trúc Multi-Tier Claim Check Store & Multi-Worker Pool Scaling
+
+### ❓ Câu hỏi đặt ra:
+*1. Bộ nhớ Shared State trong Claim Check Store chạy trên RAM in-memory có nguy cơ tràn bộ nhớ và không chia sẻ được giữa nhiều tiến trình/pod. Làm sao để nâng cấp lên Redis phân tán?*
+*2. Temporal Worker hiển thị chỉ có 1 Poller trên Web UI dù bật nhiều thread. Làm sao để scale nhiều Worker độc lập?*
+
+### 💡 Giải đáp & Quyết định kỹ thuật:
+1. **Kiến trúc Multi-Tier Claim Check Store (`claim_check.py`)**:
+   - **L1 In-Memory Cache**: LRU Cache nội tại tiến trình với cơ chế deepcopy bảo vệ cách ly đột biến dữ liệu giữa các luồng.
+   - **L2 Distributed Redis Cache**: Quản lý State phân tán qua Redis JSON serialization với TTL tự động (mặc định 7 ngày).
+   - **L3 Database Fallback**: Write-through và phục hồi dữ liệu từ SQLite/PostgreSQL khi cache miss hoặc restart pod.
+   - Cho phép cấu hình linh hoạt qua biến môi trường `CLAIM_CHECK_STORE_TYPE=tiered` và `REDIS_URL`.
+2. **Multi-Worker Pool với Unique Poller Identity**:
+   - Temporal SDK yêu cầu mỗi `Worker` instance gắn với một `Client` có `identity` duy nhất (`credit-worker-{queue}-{index}`).
+   - Khởi chạy đồng thời trên 4 Task Queues chuyên biệt: `credit-approval-queue`, `fast-tools-queue`, `idp-ocr-queue`, `heavy-llm-queue`.
+   - Bổ sung tham số `--count N` trong lệnh CLI `python3 -m credit_agent_poc worker --count 4`.
+
 ---
 
-*Tài liệu này sẽ tiếp tục được cập nhật các nội dung kỹ thuật mới trong các phiên làm việc tiếp theo.*
+## Chuyên đề 14: Kiểm Thử Tải (Load Testing) & Giả Lập Hồ Sơ Động (Synthetic Dossiers)
+
+### ❓ Câu hỏi đặt ra:
+*Làm thế nào để kiểm thử tải (stress-test) toàn diện hệ thống với hàng trăm hồ sơ doanh nghiệp đa dạng, đo đạc P50/P90/P99 latency và TPS thay vì chỉ chạy 6 kịch bản tĩnh?*
+
+### 💡 Giải đáp & Quyết định kỹ thuật:
+1. **Công cụ Benchmark & Stress Tester (`scripts/load_test.py`)**:
+   - Hỗ trợ 2 chế độ: `--mode api` (bắn đồng thời HTTP POST qua Web Server) và `--mode temporal` (bắn trực tiếp vào Temporal Engine).
+   - Tính toán đầy đủ: Throughput (TPS), phân vị độ trễ (P50, P90, P95, P99, Min, Mean, Max), phân bổ kết quả tín dụng và phán quyết Control Gate.
+   - Kiểm tra tính toàn vẹn dữ liệu: sinh `case_id` độc nhất cho từng ca và ghi vết tự động vào `credit_cases` cùng `audit_events`.
+2. **Bộ Sinh Hồ Sơ Động (`SyntheticDossierGenerator`)**:
+   - Tự động sinh ngẫu nhiên hồ sơ doanh nghiệp Việt Nam theo 5 nhóm rủi ro đặc trưng (`HEALTHY_PRIME`, `POLICY_EXCEPTION_TENOR`, `SUSPICIOUS_AML`, `WEAK_CASHFLOW`, `INCOMPLETE_DOCS`).
+   - Mở rộng API `POST /api/run-custom` cho phép hệ thống LOS/Core Banking bên ngoài gửi trực tiếp hồ sơ JSON vào thẩm định.
+
+---
+
+*Tài liệu này là Living Technical Playbook được cập nhật liên tục sau mỗi phiên tối ưu kiến trúc.*

@@ -83,6 +83,43 @@ Truy cập: **[http://127.0.0.1:8080](http://127.0.0.1:8080)** để xem giao di
 
 ---
 
+## ⚡ Kiểm Thử Tải & Giả Lập Hồ Sơ Động (Load Testing & Synthetic Generator)
+
+Hệ thống tích hợp sẵn công cụ Benchmark & Load Testing chuyên dụng cho Ngân hàng:
+
+```bash
+# 1. Test tải 20 hồ sơ với 5 luồng song song qua HTTP Web Server:
+PYTHONPATH=src python3 scripts/load_test.py -n 20 -c 5 -m api
+
+# 2. Test tải với 50 hồ sơ ĐỘNG sinh ngẫu nhiên từ Synthetic Dossier Generator:
+PYTHONPATH=src python3 scripts/load_test.py -n 50 -c 10 -m api -d
+
+# 3. Test tải trực tiếp vào Temporal Engine cho riêng nhóm rủi ro AML:
+PYTHONPATH=src python3 scripts/load_test.py -n 30 -c 6 -m temporal -d -a SUSPICIOUS_AML -o benchmark.json
+
+# 4. Sử dụng qua lệnh CLI:
+PYTHONPATH=src python3 -m credit_agent_poc load-test -n 20 -c 4 -d
+```
+
+### 🔌 API Nhận Hồ Sơ Tùy Biến (`POST /api/run-custom`)
+Cho phép các hệ thống LOS/Core Banking bên ngoài gửi trực tiếp hồ sơ thẩm định vào CreditAgent:
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/run-custom \
+  -H "Content-Type: application/json" \
+  -d '{
+    "borrower": {"name": "Công ty CP Cơ khí Hoàng Phát", "tax_code": "0109876543", "segment": "SME", "industry": "manufacturing"},
+    "request": {"amount": 5000000000, "tenor_months": 12, "purpose": "working_capital"},
+    "declared_revenue": 35000000000,
+    "observed_inflow": 33000000000,
+    "dscr": 1.65,
+    "collateral_coverage": 1.8,
+    "documents_complete": true
+  }'
+```
+
+---
+
 ## 🏛️ Kiến trúc Điều phối Temporal (Parent & Child Workflows)
 
 ```mermaid
@@ -119,16 +156,20 @@ src/credit_agent_poc/
     gateway.py           # Tool Gateway phân quyền Allowlist & Audit Log
     simulated/           # Nhóm công cụ giả lập cho Demo/Test (intake, financial, integrity, structuring)
     adapters/            # Enterprise Adapters thực tế (CIC, Core Banking, IDP OCR, Collateral)
+  claim_check.py         # Multi-Tier Claim Check Store (L1 RAM -> L2 Redis -> L3 DB)
+  dossier_generator.py   # Synthetic Dossier Generator (5 Risk Archetypes)
   control_gate.py        # Thẩm định Độc lập, Hard-block checker & Chữ ký số HMAC-SHA256
-  workflow.py            # Temporal Parent Workflow & 5 Stage Child Workflows
+  workflow.py            # Temporal Parent Workflow, 5 Stage Child Workflows & Multi-Worker Pool
   orchestrator.py        # Engine điều phối cao cấp & persistence
-  scenarios.py           # 6 kịch bản tín dụng thử nghiệm
+  scenarios.py           # 6 kịch bản tín dụng thử nghiệm gốc
   models.py              # Shared State, StatePatch & Ownership validator
   model.py               # Offline ScenarioModel & OpenAI-compatible adapters
   db.py                  # SQLite repository, Audit Trail & Quality Analytics
   report.py              # Động cơ tạo báo cáo HTML/JSON
-  web.py                 # REST API Web Review Server
+  web.py                 # REST API Web Review Server & Custom Endpoints
   static/index.html      # Giao diện Web Review UI Song ngữ (VI/EN)
+scripts/
+  load_test.py           # Công cụ Load & Stress Testing Benchmark (API & Temporal Modes)
 ```
 
 ---
@@ -139,11 +180,14 @@ src/credit_agent_poc/
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-Hệ thống bao gồm **79 unit tests tự động** kiểm tra toàn diện:
+Hệ thống bao gồm **119 unit tests tự động** kiểm tra toàn diện:
 - Bộ 20 Tiêu chuẩn Nghiệm thu Ranh giới (`AC1` đến `AC20`).
 - Kiểm soát an toàn Control Gate, Hard-block và phân cấp Thẩm quyền (`Exception Authority`).
 - Xác minh Mã băm Chữ ký số HMAC-SHA256 và phát hiện hồ sơ bị can thiệp (Tampered record).
 - Tính nguyên tử và chống trùng lặp dữ liệu (`Idempotency & Concurrency`).
+- Multi-Tier Claim Check Store (L1 In-Memory, L2 Redis, L3 DB fallback).
+- Ma trận Timeout & Degradation độc lập cho từng Agent A1 -> A13.
+- Sinh hồ sơ động (Synthetic Dossier Generator) và thực thi kịch bản tùy biến.
 - Phân tích chỉ số Chất lượng Cán bộ Phê duyệt (Quality Index).
 
 ---
@@ -158,13 +202,14 @@ Hệ thống bao gồm **79 unit tests tự động** kiểm tra toàn diện:
 6. **[06. Quy Trình Phê Duyệt Con Người & Đánh Giá Chất Lượng Cán Bộ](docs/06_luong_phe_duyet_con_nguoi_va_danh_gia_chat_luong.md):** Luồng ký duyệt con người, mã băm chữ ký số, quy tắc giải trình Override AI & Báo cáo chất lượng phê duyệt (Approver Quality KPIs).
 7. **[07. Định Hướng Kiến Trúc & Cấu Trúc Thư Mục Enterprise](docs/07_dinh_huong_kien_truc_va_cau_truc_thu_muc_enterprise.md):** Cấu trúc thư mục chuẩn hóa Enterprise phân tách Clean Architecture (Domain, Agents, Tools Adapters, Governance, Infrastructure, WebUI).
 8. **[08. Thiết Kế Hạ Tầng & Quy Hoạch Năng Lực (Sizing Guide) Enterprise](docs/08_thiet_ke_ha_tang_va_sizing_enterprise.md):** Quy hoạch tài nguyên máy chủ, tính toán Peak TPS (10.000 hồ sơ/ngày), Sizing K8s Workers, Temporal Cluster, PostgreSQL DB & Private LLM (NVIDIA A100/H100).
-9. **[09. Sổ Tay Kỹ Thuật & Tổng Hợp Giải Pháp Kiến Trúc (Living Technical Playbook)](docs/09_tong_hop_trao_doi_ky_thuat_va_giai_phap_kien_truc.md):** Tổng hợp 10 chuyên đề kỹ thuật chuyên sâu, quyết định thiết kế kiến trúc (ADR), bài toán tải, xử lý OCR/IDP chống timeout và hệ thống Audit Traceability.
+9. **[09. Sổ Tay Kỹ Thuật & Tổng Hợp Giải Pháp Kiến Trúc (Living Technical Playbook)](docs/09_tong_hop_trao_doi_ky_thuat_va_giai_phap_kien_truc.md):** Tổng hợp 12 chuyên đề kỹ thuật chuyên sâu: Claim Check Redis, Multi-Worker Pool, Unique Case ID, Load Testing và Synthetic Generator.
 10. **[10. Luồng Thực Thi Temporal.io Workflow (Mermaid Sequence & Flowchart)](docs/10_luong_thuc_thi_temporal_workflow.md):** Sơ đồ Mermaid sequence & flowchart chi tiết luồng thực thi Temporal.io (Client, Server, Task Queue, Worker, Workflow, Activity & LocalDB).
 11. **[11. Sơ Đồ & Luồng Dữ Liệu Toàn Bộ Hành Trình](docs/11_luong_du_lieu_toan_bo_hanh_trinh.md):** Luồng dữ liệu End-to-End từ 6 hệ thống Backend, 25 Tools, luồng chuyển giao 13 Agent Pipeline (State v1 - v14), Deterministic Control Plane và Human Final Authority.
 12. **[12. Định Hướng Kỹ Thuật Chuyển Đổi POC Sang Production](docs/12_tai_lieu_dinh_huong_ky_thuat_chuyen_doi_poc_sang_production.md):** Tài liệu định hướng kỹ thuật toàn diện: khắc phục Temporal History Bloat, PostgreSQL State Diffing, LLM Gateway PII Redaction, OIDC SSO và Lộ trình 3 giai đoạn (P1, P2, P3).
-13. **[Architecture Flow Diagram (Interactive HTML)](docs/architecture_diagram.html):** Sơ đồ tương tác toàn bộ kiến trúc hệ thống CreditAgent chuẩn editorial diagram-design.
-14. **[Integration Architecture Diagram (Interactive HTML)](docs/integration_architecture.html):** Sơ đồ tích hợp Hub-and-Spoke 6 hệ thống Backend, 25 Tools, Temporal Engine và Cổng Phê duyệt.
-15. **[End-to-End Data Flow Diagram (Interactive HTML)](docs/end_to_end_data_flow.html):** Sơ đồ HTML tương tác luồng dữ liệu 3 lớp (Backend Systems & 25 Tools, 13 Agent Data Pipeline & Human Authority).
-16. **[Master Diagram Showcase (Interactive Portal)](docs/index_diagrams.html):** Cổng tổng hợp chuyển đổi trực quan giữa 3 sơ đồ kiến trúc.
-17. Xem thêm [kiến trúc Multi-Agent đồng phê duyệt tín dụng](kien-truc-multi-agent-dong-phe-duyet-tin-dung.md) gốc.
+13. **[13. Hướng Dẫn Kiểm Thử Tải & Giả Lập Hồ Sơ Doanh Nghiệp](docs/13_kiem_thu_tai_va_gia_lap_ho_so_nang_cao.md):** Hướng dẫn chi tiết kỹ thuật Benchmark TPS, phân vị độ trễ (P50/P90/P99), sinh hồ sơ động theo 5 Risk Archetypes và API nạp hồ sơ tùy biến.
+14. **[Architecture Flow Diagram (Interactive HTML)](docs/architecture_diagram.html):** Sơ đồ tương tác toàn bộ kiến trúc hệ thống CreditAgent chuẩn editorial diagram-design.
+15. **[Integration Architecture Diagram (Interactive HTML)](docs/integration_architecture.html):** Sơ đồ tích hợp Hub-and-Spoke 6 hệ thống Backend, 25 Tools, Temporal Engine và Cổng Phê duyệt.
+16. **[End-to-End Data Flow Diagram (Interactive HTML)](docs/end_to_end_data_flow.html):** Sơ đồ HTML tương tác luồng dữ liệu 3 lớp (Backend Systems & 25 Tools, 13 Agent Data Pipeline & Human Authority).
+17. **[Master Diagram Showcase (Interactive Portal)](docs/index_diagrams.html):** Cổng tổng hợp chuyển đổi trực quan giữa 3 sơ đồ kiến trúc.
+18. Xem thêm [kiến trúc Multi-Agent đồng phê duyệt tín dụng](kien-truc-multi-agent-dong-phe-duyet-tin-dung.md) gốc.
 

@@ -21,10 +21,10 @@ temporal server start-dev --ip 127.0.0.1 --port 7233
 ```
 *(Giao diện Temporal Web UI xem tại: `http://127.0.0.1:8233`)*
 
-Mở **Terminal 2** để khởi tạo Temporal Worker Process lắng nghe Task Queue:
+Mở **Terminal 2** để khởi tạo Cụm Temporal Multi-Worker Pool (lắng nghe đồng thời cả 4 task queues):
 ```bash
 cd CreditAgent
-PYTHONPATH=src python3 -m credit_agent_poc worker --target-host 127.0.0.1:7233 --task-queue credit-approval-queue
+PYTHONPATH=src python3 -m credit_agent_poc worker --target-host 127.0.0.1:7233 --task-queue credit-approval-queue --count 4
 ```
 
 ### Bước 2: Khởi chạy Web Review UI Server (Port 8080)
@@ -50,7 +50,16 @@ PYTHONPATH=src python3 -m credit_agent_poc run --scenario approve_conditions --e
 PYTHONPATH=src python3 -m credit_agent_poc run-all --engine temporal-cluster --output-dir demo-output
 ```
 
-### 3. Chạy toàn bộ bộ Unit Tests tự động (27 test cases)
+### 3. Chạy Kiểm thử tải (Load & Stress Testing) với Hồ sơ Động
+```bash
+# Test 20 hồ sơ động với 4 luồng đồng thời qua HTTP API:
+PYTHONPATH=src python3 scripts/load_test.py -n 20 -c 4 -m api -d
+
+# Test trực tiếp vào Temporal Engine:
+PYTHONPATH=src python3 scripts/load_test.py -n 30 -c 6 -m temporal -d
+```
+
+### 4. Chạy toàn bộ bộ Unit Tests tự động (119 test cases)
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
