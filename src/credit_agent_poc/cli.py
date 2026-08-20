@@ -63,6 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
     load.add_argument("-m", "--mode", choices=["api", "temporal"], default="api", help="Benchmark mode")
     load.add_argument("-u", "--url", default=f"http://{CONFIG.WEB_HOST}:{CONFIG.WEB_PORT}", help="Web Server URL")
     load.add_argument("-s", "--scenario", default=None, help="Specific scenario")
+    load.add_argument("-d", "--dynamic", action="store_true", help="Generate unique synthetic loan dossiers for every request")
+    load.add_argument("-a", "--archetype", choices=["HEALTHY_PRIME", "POLICY_EXCEPTION_TENOR", "SUSPICIOUS_AML", "WEAK_CASHFLOW", "INCOMPLETE_DOCS"], default=None, help="Specify risk archetype for synthetic generation")
     load.add_argument("--db-path", default=CONFIG.DB_PATH, help="Database path")
     load.add_argument("-o", "--output", type=Path, default=None, help="Output JSON report path")
     return parser
@@ -90,6 +92,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             total_requests=args.total,
             concurrency=args.concurrency,
             scenario_filter=args.scenario,
+            dynamic_dossiers=args.dynamic,
+            archetype=args.archetype,
             db_path=args.db_path,
         )
         if args.output:

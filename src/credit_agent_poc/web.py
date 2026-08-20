@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlparse
 
 from .config import CONFIG
 from .db import StateRepository
+from .dossier_generator import SyntheticDossierGenerator
 from .logger import audit_log
 from .orchestrator import CreditOrchestrator
 from .scenarios import SCENARIOS, scenario_catalog
@@ -155,6 +156,81 @@ class POCRequestHandler(BaseHTTPRequestHandler):
                 self._json({"error": "record_failed", "message": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
+        if path == "/api/run-custom":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+            try:
+                data = json.loads(body) if body else {}
+                sc_id = data.get("scenario_id") or f"custom_{uuid.uuid4().hex[:8]}"
+                archetype = data.get("archetype")
+                scenario = SyntheticDossierGenerator.generate_and_register(
+                    scenario_id=sc_id, archetype=archetype, custom_params=data
+                )
+                cluster_alive = is_temporal_cluster_alive()
+                effective_engine = "temporal"
+                engine_label = f"Native Temporal Server Cluster ({CONFIG.TEMPORAL_TARGET_HOST})" if cluster_alive else f"Native Temporal Server Engine ({CONFIG.TEMPORAL_TARGET_HOST})"
+                
+                run_id = str(uuid.uuid4())
+                with self.runs_lock:
+                    self.runs[run_id] = {
+                        "run_id": run_id,
+                        "scenario_id": scenario.scenario_id,
+                        "status": "RUNNING",
+                        "active_nodes": [],
+                        "events": [],
+                        "engine_info": {
+                            "engine_type": "temporal",
+                            "engine_label": engine_label,
+                            "is_temporal": True,
+                            "is_cluster": cluster_alive,
+                            "temporal_ui_url": CONFIG.TEMPORAL_UI_URL,
+                        },
+                        "result": None,
+                        "error": None,
+                    }
+                threading.Thread(
+                    target=self._run_async,
+                    args=(run_id, scenario.scenario_id, effective_engine),
+                    name=f"poc-run-{run_id[:8]}",
+                    daemon=True,
+                ).start()
+                self._json({
+                    "run_id": run_id,
+                    "scenario_id": scenario.scenario_id,
+                    "company_name": scenario.borrower["name"],
+                    "status": "RUNNING",
+                }, HTTPStatus.ACCEPTED)
+            except Exception as exc:
+                self._json({"error": "custom_run_failed", "message": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+
+        if path == "/api/generate-synthetic":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+            try:
+                data = json.loads(body) if body else {}
+                count = max(1, min(100, int(data.get("count", 10))))
+                archetype = data.get("archetype")
+                scenarios = SyntheticDossierGenerator.generate_batch(count=count, archetype=archetype)
+                self._json({
+                    "count": len(scenarios),
+                    "scenarios": [
+                        {
+                            "scenario_id": s.scenario_id,
+                            "name": s.name,
+                            "company_name": s.borrower["name"],
+                            "industry": s.borrower["industry"],
+                            "requested_amount": s.request["amount"],
+                            "dscr": s.dscr,
+                            "expected_outcome": s.expected_outcome,
+                        }
+                        for s in scenarios
+                    ]
+                }, HTTPStatus.OK)
+            except Exception as exc:
+                self._json({"error": "generation_failed", "message": str(exc)}, HTTPStatus.BAD_REQUEST)
+            return
+
         async_prefix = "/api/run-async/"
         parsed_url = urlparse(self.path)
         path = parsed_url.path
@@ -217,13 +293,18 @@ class POCRequestHandler(BaseHTTPRequestHandler):
     def _run_async(cls, run_id: str, scenario_id: str, engine: Optional[str] = None) -> None:
         def observe(event: dict) -> None:
             with cls.runs_lock:
-                run = cls.runs[run_id]
+                run = cls.runs.get(run_id)
+                if not run:
+                    return
                 run["events"].append(event)
-                node_id = event["node_id"]
-                if event["event"] == "NODE_STARTED" and node_id not in run["active_nodes"]:
-                    run["active_nodes"].append(node_id)
-                elif event["event"] == "NODE_COMPLETED" and node_id in run["active_nodes"]:
-                    run["active_nodes"].remove(node_id)
+                node_id = event.get("node_id")
+                if not node_id:
+                    return
+                if event.get("event") == "NODE_STARTED":
+                    if node_id not in run["active_nodes"]:
+                        run["active_nodes"].append(node_id)
+                elif event.get("event") == "NODE_COMPLETED":
+                    run["active_nodes"] = [n for n in run["active_nodes"] if n != node_id]
 
         trace_id = f"tr-{run_id}"
         case_id = f"CASE-{scenario_id.upper()}-{run_id[:6].upper()}"
@@ -249,10 +330,12 @@ class POCRequestHandler(BaseHTTPRequestHandler):
             except Exception:
                 pass
         except Exception as exc:
+            import traceback
+            tb = traceback.format_exc()
             with cls.runs_lock:
                 cls.runs[run_id]["status"] = "FAILED"
                 cls.runs[run_id]["active_nodes"] = []
-                cls.runs[run_id]["error"] = str(exc)
+                cls.runs[run_id]["error"] = tb
             audit_log("API_RUN_REQUEST_FAILED", "WEB_SERVER", trace_id, case_id, level="ERROR", details={"run_id": run_id, "error": str(exc)})
             try:
                 db_repo = StateRepository(cls.db_path)

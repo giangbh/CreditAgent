@@ -52,9 +52,9 @@ def _signals(node_id: str, output: dict[str, Any], state: CreditState) -> set[st
 
 
 def build_risk_propagation(state: CreditState) -> dict[str, Any]:
-    outputs = {node["node_id"]: node["output"] for node in state.node_history}
+    outputs = {node["node_id"]: node.get("output", {}) for node in state.node_history}
     outputs["CONTROL"] = state.control
-    signals_by_node = {node: _signals(node, outputs[node], state) for node in NODE_ORDER}
+    signals_by_node = {node: _signals(node, outputs.get(node, {}), state) for node in NODE_ORDER}
     risks = []
     for risk_code in sorted(set().union(*signals_by_node.values())):
         path = [node for node in NODE_ORDER if risk_code in signals_by_node[node]]

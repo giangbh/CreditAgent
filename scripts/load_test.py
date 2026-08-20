@@ -90,14 +90,22 @@ def _http_get(url: str, timeout: float = 30.0) -> dict:
 def run_http_case(
     index: int,
     base_url: str,
-    scenario_id: str,
+    scenario_input: Any,
     poll_interval_sec: float = 0.4,
     max_wait_sec: float = 120.0,
 ) -> CaseExecutionResult:
     start_time = time.perf_counter()
-    post_url = f"{base_url.rstrip('/')}/api/run-async/{scenario_id}"
+    if isinstance(scenario_input, dict):
+        post_url = f"{base_url.rstrip('/')}/api/run-custom"
+        post_data = scenario_input
+        scenario_id = scenario_input.get("scenario_id", f"syn_{index}")
+    else:
+        scenario_id = str(scenario_input)
+        post_url = f"{base_url.rstrip('/')}/api/run-async/{scenario_id}"
+        post_data = {}
+
     try:
-        init_resp = _http_post(post_url, data={}, timeout=15.0)
+        init_resp = _http_post(post_url, data=post_data, timeout=15.0)
         run_id = init_resp.get("run_id", "")
         if not run_id:
             raise ValueError(f"No run_id returned by server: {init_resp}")
@@ -247,6 +255,8 @@ def execute_load_test(
     total_requests: int = 20,
     concurrency: int = 4,
     scenario_filter: Optional[str] = None,
+    dynamic_dossiers: bool = False,
+    archetype: Optional[str] = None,
     db_path: str = "credit_agent.db",
 ) -> LoadTestReport:
     print("\n" + "=" * 70)
@@ -256,17 +266,28 @@ def execute_load_test(
     print(f" • Target:           {target_url if mode == 'api' else 'Direct Temporal Engine'}")
     print(f" • Total Requests:   {total_requests}")
     print(f" • Concurrency:      {concurrency} concurrent workers")
-    print(f" • Scenario:         {scenario_filter or 'Random Mix across all 6 scenarios'}")
+    if dynamic_dossiers:
+        print(f" • Dossier Mode:     ⚡ DYNAMIC SYNTHETIC (Archetype: {archetype or 'RANDOM_MIX'})")
+    else:
+        print(f" • Scenario:         {scenario_filter or 'Random Mix across all 6 static scenarios'}")
     print("=" * 70 + "\n")
 
     # Prepare list of scenarios
     case_scenarios = []
-    for i in range(total_requests):
-        if scenario_filter and scenario_filter in SCENARIOS:
-            sc = scenario_filter
-        else:
-            sc = SCENARIOS[i % len(SCENARIOS)]
-        case_scenarios.append((i + 1, sc))
+    if dynamic_dossiers:
+        from dataclasses import asdict
+        from credit_agent_poc.dossier_generator import SyntheticDossierGenerator
+        syn_scenarios = SyntheticDossierGenerator.generate_batch(count=total_requests, archetype=archetype)
+        for i, sc in enumerate(syn_scenarios):
+            inp = asdict(sc) if mode == "api" else sc.scenario_id
+            case_scenarios.append((i + 1, inp))
+    else:
+        for i in range(total_requests):
+            if scenario_filter and scenario_filter in SCENARIOS:
+                sc = scenario_filter
+            else:
+                sc = SCENARIOS[i % len(SCENARIOS)]
+            case_scenarios.append((i + 1, sc))
 
     results: List[CaseExecutionResult] = []
     start_total_time = time.perf_counter()
@@ -388,6 +409,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-m", "--mode", choices=["api", "temporal"], default="api", help="Load test mode (HTTP API or direct Temporal)")
     parser.add_argument("-u", "--url", default="http://127.0.0.1:8080", help="Web Server URL (for API mode)")
     parser.add_argument("-s", "--scenario", choices=SCENARIOS, default=None, help="Fix a specific scenario (default: random mix)")
+    parser.add_argument("-d", "--dynamic", action="store_true", help="Generate unique synthetic loan dossiers for every request")
+    parser.add_argument(
+        "-a", "--archetype",
+        choices=["HEALTHY_PRIME", "POLICY_EXCEPTION_TENOR", "SUSPICIOUS_AML", "WEAK_CASHFLOW", "INCOMPLETE_DOCS"],
+        default=None,
+        help="Specify risk archetype for synthetic generation",
+    )
     parser.add_argument("--db-path", default="credit_agent.db", help="SQLite database path")
     parser.add_argument("-o", "--output", type=Path, default=None, help="Save report to JSON file")
     return parser
@@ -401,6 +429,8 @@ def main() -> int:
         total_requests=args.total,
         concurrency=args.concurrency,
         scenario_filter=args.scenario,
+        dynamic_dossiers=args.dynamic,
+        archetype=args.archetype,
         db_path=args.db_path,
     )
     if args.output:
